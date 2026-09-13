@@ -339,6 +339,7 @@ test('office audio plays typing only during work and louder report chimes, with 
     window.EventSource=class {constructor(){window.officeEvents=this;}close(){}};
   });
   await page.goto('/');
+  await page.waitForFunction(()=>typeof window.officeEvents?.onmessage==='function');
   await page.evaluate(snapshot=>window.officeEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
   await expect.poll(()=>page.evaluate(()=>window.audioEvents.taps)).toBeGreaterThan(0);
   await page.locator('.rail [data-view="logs"]').click();
