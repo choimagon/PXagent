@@ -1,0 +1,11 @@
+import { access, readdir } from 'node:fs/promises';
+import path from 'node:path';
+const release=path.resolve('release');
+const platform=process.env.PX_BUILD_PLATFORM||process.platform,arch=process.env.PX_BUILD_ARCH||process.arch;
+const resources=platform==='darwin'?path.join(release,`mac${arch==='arm64'?'-arm64':''}`,'PXagents.app','Contents','Resources'):path.join(release,platform==='win32'?`win${arch==='arm64'?'-arm64':''}-unpacked`:`linux${arch==='arm64'?'-arm64':''}-unpacked`,'resources');
+await access(path.join(resources,'app','server.mjs'));
+await access(path.join(resources,'app','desktop','preload.cjs'));
+await access(path.join(resources,'codex','bin',platform==='win32'?'codex.exe':'codex'));
+const names=await readdir(path.join(resources,'app'));
+if(names.some(name=>['data','.env','.codex','.agents'].includes(name)))throw Error('배포물에 개인 데이터 폴더가 들어갔습니다.');
+console.log('배포 앱·Codex 리소스 확인, 개인 데이터 제외 확인 완료');

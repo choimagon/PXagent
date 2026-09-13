@@ -1,0 +1,16 @@
+node_modules/
+data/
+.env
+test-results/
+playwright-report/
+.DS_Store
+
+release/
+build/codex/
+
+dist/
+.codex/
+.agents/
+*.log
+
+release-assets/

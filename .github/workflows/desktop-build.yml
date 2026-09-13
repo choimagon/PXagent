@@ -1,0 +1,107 @@
+name: Desktop installers
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: win32
+            arch: x64
+          - runner: windows-11-arm
+            platform: win32
+            arch: arm64
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+          - runner: ubuntu-22.04
+            platform: linux
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      PX_MAINTAINER: ${{ vars.PX_MAINTAINER }}
+      PX_BUILD_PLATFORM: ${{ matrix.platform }}
+      PX_BUILD_ARCH: ${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.platform == 'darwin' && secrets.MAC_CSC_LINK != '' && 'true' || 'false' }}
+      # Set signing secrets before public distribution; absent secrets produce beta builds.
+      CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.MAC_CSC_LINK || matrix.platform == 'win32' && secrets.WIN_CSC_LINK || '' }}
+      CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.MAC_CSC_KEY_PASSWORD || matrix.platform == 'win32' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      PX_NOTARIZE: ${{ matrix.platform == 'darwin' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Portable runtime and login tests
+        run: node --test tests/tail-web.test.mjs tests/desktop.test.mjs
+      - name: Existing backend tests
+        if: matrix.platform != 'win32'
+        run: npm test
+      - name: Linux desktop dependencies
+        if: matrix.runner == 'ubuntu-24.04-arm'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64 libfuse2
+      - name: Ubuntu 22.04 desktop dependencies
+        if: matrix.runner == 'ubuntu-22.04'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2 libfuse2
+      - name: Browser tests
+        if: matrix.runner == 'ubuntu-22.04'
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:ui
+      - run: npm run dist -- --${{ matrix.arch }} --publish never
+      - name: Verify installer contents
+        run: node scripts/verify-desktop.mjs
+      - name: Desktop smoke on macOS and Windows
+        if: matrix.platform != 'linux'
+        run: node scripts/smoke-desktop.mjs
+      - name: Desktop smoke on Linux
+        if: matrix.platform == 'linux'
+        run: |
+          sudo chown root:root release/linux${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked/chrome-sandbox
+          sudo chmod 4755 release/linux${{ matrix.arch == 'arm64' && '-arm64' || '' }}-unpacked/chrome-sandbox
+          xvfb-run -a node scripts/smoke-desktop.mjs
+      - name: Prepare download names
+        run: node scripts/package-release.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PXagents-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish verified installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp install.sh release-assets/install.sh
+          cd release-assets
+          sha256sum * > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "PXagents $GITHUB_REF_NAME" --notes "Windows: run the EXE and enter i to install or c to uninstall. macOS / Linux: run install.sh (i / c). 한국어 안내: https://github.com/choimagon/PXagent#readme · English: https://github.com/choimagon/PXagent/blob/main/README.en.md. Unsigned builds may show OS security prompts." ./*

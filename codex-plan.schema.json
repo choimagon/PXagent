@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "agentId": { "type": "string", "enum": ["dev", "junior", "writer", "format", "misc"] },
+    "instruction": { "type": "string" }
+  },
+  "required": ["agentId", "instruction"],
+  "additionalProperties": false
+}
