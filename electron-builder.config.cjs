@@ -1,3 +1,5 @@
+// An empty CI secret must mean unsigned, not a certificate path to the project directory.
+for(const key of ['CSC_LINK','CSC_KEY_PASSWORD','WIN_CSC_LINK'])if(process.env[key]==='')delete process.env[key];
 module.exports={
   appId:'com.pxagents.office',productName:'PXagents',asar:false,
   directories:{output:'release',buildResources:'build'},

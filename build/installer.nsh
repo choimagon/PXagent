@@ -5,6 +5,7 @@ Var pxUninstall
 !macro customWelcomePage
   Page custom pxChoiceCreate pxChoiceLeave
 !macroend
+!macro customHeader
 Function pxChoiceCreate
   ${If} ${Silent}
     Abort
@@ -39,4 +40,5 @@ Function pxChoiceLeave
     Abort
   ${EndIf}
 FunctionEnd
+!macroend
 !endif
