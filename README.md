@@ -55,6 +55,18 @@ Codex 실행 파일은 앱에 포함됩니다. Node.js나 Codex CLI를 따로 �
 
 Codex는 앱을 실행한 컴퓨터에서만 실행합니다. 다른 컴퓨터의 작업은 Tailscale 네트워크를 통한 SSH 터미널로 수행합니다. 원격 대상은 현재 Linux·macOS 등 Unix 환경을 지원하며 SSH 접근 설정이 필요합니다. Windows에서도 앱을 실행해 Unix 컴퓨터에 작업을 맡길 수 있습니다. 저장한 SSH 비밀번호는 데스크톱 앱의 OS 보안 저장소로 암호화합니다.
 
+## 에셋 출처와 라이선스
+
+외부 폰트와 효과음은 무료이며 상업적 사용도 가능합니다. 에셋별 출처와 조건은 아래와 같습니다.
+
+| 에셋 | 출처 | 라이선스와 사용 조건 |
+| --- | --- | --- |
+| 픽셀 캐릭터·사무실·가구·로고 | 프로젝트에서 코드로 직접 제작한 SVG ([캐릭터](public/sprites.js), [사무실·가구](public/office.js), [로고](public/assets/favicon.svg)) | 외부 게임 스프라이트나 유료 에셋팩을 사용하지 않았습니다. 별도의 재사용 라이선스는 아직 지정하지 않았습니다. |
+| Galmuri11 폰트 | [Galmuri — Lee Minseo (quiple)](https://github.com/quiple/galmuri) | SIL Open Font License 1.1. 무료·상업적 사용과 앱에 포함한 배포가 가능합니다. 배포 시 저작권 고지와 [라이선스 파일](public/assets/Galmuri-LICENSE.md)을 유지해야 하며, 폰트 자체만 따로 판매할 수 없습니다. |
+| 키보드 타이핑 효과음 | [Keyboard Typing 7 (HHKB, Topre) — grcekh](https://freesound.org/people/grcekh/sounds/546164/) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). 무료·상업적 사용, 수정, 재배포가 가능하며 출처 표시 의무는 없습니다. 프로젝트에는 [출처 기록](public/assets/keyboard-typing-CREDITS.md)을 포함했습니다. |
+
+외부 에셋의 라이선스는 앱 자체나 직접 제작한 그래픽에 대한 재사용 허가를 뜻하지 않습니다. 외부 구성요소 전체의 고지는 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)를 참고하세요.
+
 ## 개발과 배포
 
 Node.js 22.9 이상이 필요합니다.

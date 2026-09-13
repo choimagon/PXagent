@@ -55,6 +55,18 @@ The app includes Codex; no separate Node.js or Codex CLI installation is needed.
 
 Codex runs only on the computer hosting the app. Remote tasks use SSH terminals over Tailscale. Remote targets currently support Unix systems such as Linux and macOS and need SSH access configured. Windows can host the app and assign work to Unix computers. Desktop SSH passwords are encrypted using the OS secure storage facility.
 
+## Asset sources and licenses
+
+The external font and sound effect are free to use, including commercially. Sources and conditions are listed below.
+
+| Asset | Source | License and conditions |
+| --- | --- | --- |
+| Pixel characters, office, furniture, and logo | SVG artwork created directly in project code ([characters](public/sprites.js), [office and furniture](public/office.js), [logo](public/assets/favicon.svg)) | No external game sprites or paid asset packs are used. A separate reuse license has not been selected. |
+| Galmuri11 font | [Galmuri — Lee Minseo (quiple)](https://github.com/quiple/galmuri) | SIL Open Font License 1.1. Free commercial use and distribution bundled with the app are permitted. Retain the copyright notice and [license file](public/assets/Galmuri-LICENSE.md) when distributing it. The font cannot be sold by itself. |
+| Keyboard typing sound effect | [Keyboard Typing 7 (HHKB, Topre) — grcekh](https://freesound.org/people/grcekh/sounds/546164/) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Free commercial use, modification, and redistribution are permitted; attribution is not required. The project includes a [source record](public/assets/keyboard-typing-CREDITS.md). |
+
+External asset licenses do not grant reuse rights for the application itself or its original artwork. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for all third-party notices.
+
 ## Development and releases
 
 Requires Node.js 22.9 or newer.
