@@ -9,6 +9,14 @@
 
 ## 설치와 삭제
 
+아래 다운로드 링크는 항상 최신 릴리스로 연결됩니다. 현재 최신 버전은 [v1.0.2](https://github.com/choimagon/PXagent/releases/tag/v1.0.2)입니다.
+
+| OS | x64 / Intel | ARM64 / Apple Silicon |
+| --- | --- | --- |
+| Windows | [x64 (.exe)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-x64.exe) | [ARM64 (.exe)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-arm64.exe) |
+| macOS | [x64 (.zip)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-mac-x64.zip) | [ARM64 (.zip)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-mac-arm64.zip) |
+| Linux | [x64 (.tar.gz)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-linux-x64.tar.gz) | [ARM64 (.tar.gz)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-linux-arm64.tar.gz) |
+
 **Windows**: [x64 설치 파일](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-x64.exe) / [ARM64 설치 파일](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-arm64.exe)을 실행하세요. 첫 화면에서 **`i`를 입력하면 설치**, **`c`를 입력하면 삭제**합니다. 설치 후 시작 메뉴나 바탕화면에서 PXagents를 실행하세요. Windows 설정의 앱 목록에서도 삭제할 수 있습니다.
 
 **macOS / Linux**: 터미널에 아래 한 줄을 붙여넣으세요. **`i` 설치 / `c` 삭제**를 선택합니다. OS와 CPU를 자동으로 감지합니다.
@@ -39,6 +47,7 @@ Codex 실행 파일은 앱에 포함됩니다. Node.js나 Codex CLI를 따로 �
 
 ## 기능
 
+- 모든 에이전트·비서 이름 변경 및 자동 저장: 캐릭터나 명패를 클릭하고 **이름** 수정
 - 담당자별 모델·추론 수준, Goal 작업, 이전 작업 이어서 하기
 - 컴퓨터별 독립 사무실, Tailscale 컴퓨터 자동 감지, SSH 계정 설정 저장
 - 편지함 결과·알림, 진행 상황을 확인하는 비서 비둘기

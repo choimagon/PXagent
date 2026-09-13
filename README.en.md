@@ -9,6 +9,14 @@ Assign work to Homunculus and let development, writing, and formatting agents co
 
 ## Install or uninstall
 
+The download links below always point to the latest release. The current release is [v1.0.2](https://github.com/choimagon/PXagent/releases/tag/v1.0.2).
+
+| OS | x64 / Intel | ARM64 / Apple Silicon |
+| --- | --- | --- |
+| Windows | [x64 (.exe)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-x64.exe) | [ARM64 (.exe)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-arm64.exe) |
+| macOS | [x64 (.zip)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-mac-x64.zip) | [ARM64 (.zip)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-mac-arm64.zip) |
+| Linux | [x64 (.tar.gz)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-linux-x64.tar.gz) | [ARM64 (.tar.gz)](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-linux-arm64.tar.gz) |
+
 **Windows**: download the [x64 installer](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-x64.exe) or [ARM64 installer](https://github.com/choimagon/PXagent/releases/latest/download/PXagents-windows-arm64.exe). Run it, enter **`i` to install** or **`c` to uninstall**, and click Next. Launch PXagents from your desktop or Start menu. You can also uninstall from Windows Settings.
 
 **macOS / Linux**: paste this into a terminal and select **`i` to install / `c` to uninstall**. The script detects your OS and CPU.
@@ -39,6 +47,7 @@ The app includes Codex; no separate Node.js or Codex CLI installation is needed.
 
 ## Features
 
+- Rename every agent and the secretary with automatic saving: click a character or nameplate and edit **이름** (Name)
 - Per-agent models and reasoning levels, Goal tasks, and task continuation
 - Separate offices for each computer, automatic Tailscale discovery, saved SSH settings
 - Results and alerts in the mailbox; progress questions through secretary Pigeon
