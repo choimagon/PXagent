@@ -317,8 +317,10 @@ function secretaryReport(question,id='local') {
   const officeTasks=state.tasks.filter(task=>officeId(task)===id);
   const active=officeTasks.filter(task=>['running','reviewing'].includes(task.status));
   const chiefTasks=active.filter(task=>task.agentId==='chief');
-  const chosen=/호문|총괄/.test(question)?chiefTasks:active;
-  const lines=['사장님, 비둘기입니다.', chiefTasks.length?'호문클루스가 작업 중입니다.':'호문클루스는 지금 쉬고 있습니다.'];
+  const chiefName=agentsFor(id).find(a=>a.id==='chief').name;
+  const secretaryName=agentsFor(id).find(a=>a.id==='secretary').name;
+  const chosen=(/호문|총괄/.test(question)||question.includes(chiefName))?chiefTasks:active;
+  const lines=[`사장님, ${secretaryName}입니다.`, chiefTasks.length?`${chiefName}가 작업 중입니다.`:`${chiefName}는 지금 쉬고 있습니다.`];
   for(const task of chosen) {
     const agent=agentsFor(id).find(a=>a.id===task.activeAgentId);
     const recent=state.logs.filter(log=>log.taskId===task.id).slice(-3);
@@ -448,7 +450,7 @@ async function execute(task, controller) {
       await useAgent(agent.id,task,signal);
       task.activeAgentId = agent.id; task.progress = 20;
       task.steps.push({ label: `${agent.name}에게 작업 배정`, at: Date.now() });
-      log(`호문클루스 → ${agent.name}: 작업을 배정했습니다.`, 'chief', task.id);
+      log(`${chief.name} → ${agent.name}: 작업을 배정했습니다.`, 'chief', task.id);
       await changed();
     }
     if (agent.id === 'dev' && routeAgent(task.description) === 'junior') {
@@ -497,7 +499,7 @@ async function execute(task, controller) {
       releaseAgent(agent.id,task.id);releaseAgent('dev',task.id);
       task.status = 'reviewing'; task.progress = 90; task.activeAgentId = 'chief';
       if (goal) goal.status = 'reviewing';
-      log('호문클루스가 결과를 검토하고 사장님 보고를 준비합니다.', 'chief', task.id); await changed();
+      log(`${chief.name} · 결과를 검토하고 사장님 보고를 준비합니다.`, 'chief', task.id); await changed();
       if (goal) {
         if (task.runMode === 'demo') {
           await wait(Number(process.env.DEMO_STEP_MS || 950), signal);
@@ -511,7 +513,7 @@ async function execute(task, controller) {
       } else if (task.runMode !== 'demo') {
         const messages = [{ role: 'system', content: `${chief.prompt}\n담당자의 결과를 검토하고 사장님에게 요청, 담당자, 결과, 후속 작업 순서로 보고하세요. 실행하지 않은 작업을 실행했다고 표현하지 마세요. 이 단계에서는 추가 작업을 실행하지 말고 검토와 보고만 하세요.` }, { role: 'user', content: `사장님 요청: ${requestContent}\n담당자: ${agent.name}\n결과:\n${result}` }];
         result = task.runMode === 'codex' ? await codexCompletion(chief, messages, task, signal, '검토 및 보고') : await completion(chief, messages, signal);
-      } else { await wait(Number(process.env.DEMO_STEP_MS || 950), signal); result = `사장님, 호문클루스입니다.\n${agent.name}에게 요청을 배정하고 진행 흐름을 확인했습니다.\n\n${result}`; }
+      } else { await wait(Number(process.env.DEMO_STEP_MS || 950), signal); result = `사장님, ${chief.name}입니다.\n${agent.name}에게 요청을 배정하고 진행 흐름을 확인했습니다.\n\n${result}`; }
     }
     if (signal.aborted) throw signal.reason;
     task.status = 'done'; task.progress = 100; task.result = result; task.finishedAt = Date.now();
@@ -794,10 +796,11 @@ const server = http.createServer(async (req, res) => {
         if (input.reasoningEffort !== undefined) throw fail(400, '선택한 모델이 지원하는 추론 레벨을 선택해주세요.');
         reasoningEffort = 'medium';
       }
+      const name = input.name === undefined ? agent.name : textField(input.name, 40);
       const prompt = input.prompt === undefined ? agent.prompt : textField(input.prompt, 4000);
       if (input.fixedPrompt !== undefined && (typeof input.fixedPrompt !== 'string' || input.fixedPrompt.length > 12000)) throw fail(400, '고정 프롬프트는 최대 12000자로 입력해주세요.');
       const fixedPrompt = input.fixedPrompt === undefined ? agent.fixedPrompt : input.fixedPrompt.trim();
-      Object.assign(agent, { profile, reasoningEffort, prompt, fixedPrompt });
+      Object.assign(agent, { name, profile, reasoningEffort, prompt, fixedPrompt });
       if (editKey) { agentEditVersions.set(editKey, input.editRevision); if (agentEditVersions.size > 500) agentEditVersions.delete(agentEditVersions.keys().next().value); }
       log(`${agent.name} 설정을 변경했습니다. 다음 모델 호출부터 적용됩니다.`, agent.id,null,'info',id);
       await changed(); return json(res, 200, { ok: true, agent });

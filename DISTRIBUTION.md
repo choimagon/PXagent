@@ -46,7 +46,7 @@ npm run dist:linux -- --x64 --publish never
 
 프로젝트를 GitHub 저장소에 올린 뒤 Actions의 **Desktop installers**를 수동 실행하거나 `v1.0.0` 형태의 버전 태그를 푸시합니다. `.github/workflows/desktop-build.yml`에 Windows/macOS/Linux 및 x64/ARM64의 여섯 빌드 환경을 준비했습니다.
 
-빌드 결과는 Actions 아티팩트로 제공됩니다. 워크플로는 릴리스를 자동 공개하거나 사이트에 게시하지 않습니다. 각 환경에서 설치 파일 구성 확인과 실제 앱 실행 테스트를 통과한 뒤 배포 파일을 내려받아 검토합니다. Windows는 플랫폼 공통 로그인·공유·askpass 테스트, macOS/Linux는 기존 백엔드 테스트도 실행합니다. 전체 브라우저 테스트는 Linux x64 환경에서 실행합니다.
+빌드 결과는 Actions 아티팩트로 제공됩니다. `v*` 태그를 푸시하면 여섯 환경의 빌드와 검증이 모두 통과한 뒤 설치 파일, 설치 스크립트, SHA-256 체크섬을 GitHub 릴리스에 자동 게시합니다. 수동 실행은 Actions 아티팩트만 생성합니다. Windows는 플랫폼 공통 로그인·공유·askpass 테스트, macOS/Linux는 기존 백엔드 테스트도 실행합니다. 전체 브라우저 테스트는 Linux x64 환경에서 실행합니다.
 
 ## 공개 배포 서명
 

@@ -7,6 +7,8 @@ const net = require('node:net');
 let window, backend, origin, stopping = false;
 const root = path.resolve(__dirname, '..');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Choose the profile before locking so isolated installer checks can run beside the app.
+if(process.env.PX_DESKTOP_DATA)app.setPath('userData',path.resolve(process.env.PX_DESKTOP_DATA));
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { if(window){if(window.isMinimized())window.restore();window.show();window.focus();} });
@@ -29,7 +31,6 @@ function environment() {
 async function start() {
   app.setName('PXagents');
   // A separate profile prevents dev and installed builds sharing mutable data.
-  if(process.env.PX_DESKTOP_DATA)app.setPath('userData',path.resolve(process.env.PX_DESKTOP_DATA));
   const data=app.getPath('userData');mkdirSync(data,{recursive:true});
   const password=randomBytes(32).toString('hex');
   const secure=safeStorage.isEncryptionAvailable()&&!(process.platform==='linux'&&safeStorage.getSelectedStorageBackend()==='basic_text');

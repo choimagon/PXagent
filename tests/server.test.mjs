@@ -279,3 +279,22 @@ test('password protects API and SSE while allowing session login',async()=>{
   const login=await request('auth','POST',{password:'test-password'});assert.equal(login.status,200);const cookie=login.headers.get('set-cookie');assert.ok(cookie.includes('HttpOnly'));assert.ok(cookie.includes('SameSite=Strict'));
   const s=await request('state','GET',undefined,{Cookie:cookie.split(';')[0]});assert.equal(s.status,200);
 });
+
+
+test('all agent names persist and invalid names do not change settings',async()=>{
+  await stop();await start();
+  const original=(await request('state')).data.agents;
+  try {
+    for(const agent of original) {
+      const renamed=await request(`agents/${agent.id}`,'PATCH',{name:`  새 이름 ${agent.id}  `});
+      assert.equal(renamed.status,200);assert.equal(renamed.data.agent.name,`새 이름 ${agent.id}`);
+    }
+    await stop();await start();
+    const saved=(await request('state')).data.agents;
+    for(const agent of saved)assert.equal(agent.name,`새 이름 ${agent.id}`);
+    for(const name of ['', '   ', 'x'.repeat(41), 123, null]) {
+      assert.equal((await request('agents/dev','PATCH',{name,profile:'luna'})).status,400);
+      assert.deepEqual((await request('state')).data.agents.find(a=>a.id==='dev'),saved.find(a=>a.id==='dev'));
+    }
+  } finally {for(const agent of original)await request(`agents/${agent.id}`,'PATCH',{name:agent.name});}
+});

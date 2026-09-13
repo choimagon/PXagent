@@ -597,3 +597,25 @@ test('desktop first launch connects Codex and permits local work without Tailsca
   await page.getByRole('button',{name:'일 시키기',exact:true}).click();await page.getByRole('button',{name:'작업 폴더 선택',exact:true}).click();
   await expect(page.locator('#task-form [name="workingDirectory"]')).toHaveValue('/tmp/work');
 });
+
+
+test('every agent can be renamed from its settings and names survive reload',async({page,request})=>{
+  const original=(await(await request.get('/api/state')).json()).agents;
+  await page.goto('/');
+  try {
+    for(const agent of original) {
+      await page.locator(`#office-svg [data-agent="${agent.id}"]`).click();
+      await page.locator(agent.id==='secretary'?'#secretary-name':'#agent-name').fill(`새 이름 ${agent.id}`);
+      await page.keyboard.press('Escape');
+      await expect.poll(async()=>{const state=await(await request.get('/api/state')).json();return state.agents.find(a=>a.id===agent.id).name;}).toBe(`새 이름 ${agent.id}`);
+      await expect(page.locator(`[data-nameplate="${agent.id}"] text`)).toHaveText(`새 이름 ${agent.id}`);
+    }
+    await page.reload();
+    for(const agent of original)await expect(page.locator(`[data-nameplate="${agent.id}"] text`)).toHaveText(`새 이름 ${agent.id}`);
+    await page.locator('#office-svg [data-agent="writer"]').click();
+    await page.locator('#agent-name').fill('<b>연구원</b>');
+    await expect(page.locator('#agent-save-status')).toHaveText('자동 저장됨');
+    await expect(page.locator('.modal-agent-heading h2')).toHaveText('<b>연구원</b>');
+    await expect(page.locator('.modal-agent-heading h2 b')).toHaveCount(0);
+  } finally {for(const agent of original)await request.patch(`/api/agents/${agent.id}`,{data:{name:agent.name}});}
+});
