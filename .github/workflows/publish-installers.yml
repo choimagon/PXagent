@@ -1,0 +1,54 @@
+name: Publish verified installers
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Desktop installers run ID
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify successful installer build
+        run: |
+          [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID" > build-run.json
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const run=JSON.parse(fs.readFileSync('build-run.json','utf8'));
+          if(run.conclusion!=='success'||run.path!=='.github/workflows/desktop-build.yml'||run.repository.full_name!==process.env.GH_REPO)throw Error('A successful installer build from this repository is required');
+          fs.appendFileSync(process.env.GITHUB_ENV,`BUILD_SHA=${run.head_sha}\n`);
+          JS
+      - name: Check out verified source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_SHA }}
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+          path: release-assets
+          merge-multiple: true
+      - name: Publish complete installers and checksums
+        run: |
+          RELEASE_TAG="v$(node -p 'require("./package.json").version')"
+          for file in PXagents-windows-x64.exe PXagents-windows-arm64.exe PXagents-mac-x64.zip PXagents-mac-arm64.zip PXagents-linux-x64.tar.gz PXagents-linux-arm64.tar.gz; do
+            test -s "release-assets/$file"
+          done
+          cp install.sh release-assets/install.sh
+          cd release-assets
+          sha256sum * > SHA256SUMS
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "PXagents $RELEASE_TAG" --notes "모든 에이전트와 비서의 이름을 설정창에서 변경할 수 있습니다. 이름은 자동 저장되고 사무실 명패에 반영됩니다. Windows: EXE 실행 후 i 설치 / c 삭제. macOS·Linux: install.sh 실행. 서명되지 않은 베타 설치파일입니다."
+          fi
+          gh release upload "$RELEASE_TAG" ./* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest
