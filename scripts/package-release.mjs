@@ -25,5 +25,9 @@ if(platform==='win32') {
  execFileSync('chmod',['0755',path.join(staging,'chrome-sandbox')]);
  execFileSync('tar',['-czf',path.resolve(`release-assets/PXagents-linux-${arch}.tar.gz`),'-C',path.resolve('release'),'pxagents']);
  await rm(staging,{recursive:true,force:true});
- for(const f of files.filter(f=>f===`PXagents-${version}-linux-${arch}.AppImage`||f===`PXagents-${version}-linux-${arch}.deb`))await copyFile(path.join('release',f),path.join('release-assets',f));
+ for(const [extension,nativeArch] of [['AppImage',arch==='x64'?'x86_64':arch],['deb',arch==='x64'?'amd64':arch]]) {
+  const source=`PXagents-${version}-linux-${nativeArch}.${extension}`;
+  if(!files.includes(source))throw Error(`${extension} installer missing: ${source}`);
+  await copyFile(path.join('release',source),`release-assets/PXagents-${version}-linux-${arch}.${extension}`);
+ }
 }
