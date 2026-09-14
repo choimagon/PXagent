@@ -35,10 +35,12 @@ test('office controls, real-time sidebar, delegation, model changes and persiste
   await expect(page.locator('#stats')).toHaveCount(0);
   await expect(page.locator('#chief-message')).toHaveCount(0);
   await expect(page.locator('.rail [data-view="inbox"]')).toBeVisible();
+  const second=await context.newPage();await second.goto('/');await expect(second.locator('#connection')).toContainText('연결됨');
   await page.getByRole('button',{name:'일 시키기'}).click();
   await page.locator('#task-description').fill('개발부서에 API 구조 검토를 맡겨줘 UI '+Date.now());
   await page.getByRole('button',{name:'시작하기',exact:true}).click();
   await expect(page.locator('#office-svg [data-agent="chief"]')).toHaveClass(/is-running/);
+  await expect(second.locator('#running-count')).not.toHaveText('0');
   await expect(page.locator('[data-row="chief"] .agent-mini')).toBeVisible();
   await page.locator('#model-dev').selectOption('luna');
   await expect(page.locator('#model-dev')).toHaveValue('luna');
@@ -49,7 +51,6 @@ test('office controls, real-time sidebar, delegation, model changes and persiste
   await page.screenshot({path:'test-results/office-running.png',fullPage:true});
   await page.getByRole('button',{name:'작업 현황',exact:true}).click();
   await page.locator('#task-board [data-action="task-details"]').first().click();
-  const second=await context.newPage();await second.goto('/');await expect(second.locator('#running-count')).not.toHaveText('0');
   await expect(page.locator('#task-board')).toContainText('완료',{timeout:15000});
   await expect(page.locator('.result-text')).toContainText('개발노예');
   await expect(page.locator('.result-text')).toContainText('데모');

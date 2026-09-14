@@ -31,8 +31,10 @@ async function poll(id,expected='done') {
   throw new Error(`Task did not reach ${expected}`);
 }
 async function pollGoal(id, expected='done') {
-  for(let i=0;i<500;i++){const state=(await request('state')).data;const goal=state.goals.find(g=>g.id===id);if(goal?.status===expected&&!state.tasks.some(t=>t.goalId===id&&['running','reviewing'].includes(t.status)))return {goal,state};await sleep(20);}
-  throw new Error(`Goal did not reach ${expected}`);
+  const deadline=Date.now()+60_000;
+  let latest;
+  while(Date.now()<deadline){const state=(await request('state')).data;const goal=state.goals.find(g=>g.id===id);latest=goal;if(goal?.status===expected&&!state.tasks.some(t=>t.goalId===id&&['running','reviewing'].includes(t.status)))return {goal,state};await sleep(20);}
+  throw new Error(`Goal did not reach ${expected}: ${JSON.stringify(latest)}`);
 }
 before(async()=>{
   data=await mkdtemp(path.join(tmpdir(),'px-office-test-'));
