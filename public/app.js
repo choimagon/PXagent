@@ -1,9 +1,21 @@
+import { FIXED_AGENT_IDS, AGENT_PRESETS, agentPresetValues } from './agent-presets.js';
 import { renderSetup } from './setup.js';
-import { avatar, icon } from './sprites.js';
+import { avatar as characterAvatar, sprite, CHARACTER_CATALOG, icon } from './sprites.js';
 import { officeMarkup } from './office.js';
 import { projectOffice, officeId } from './offices.js';
 import { MODEL_CATALOG, REASONING_LEVELS } from './models.js';
 
+function avatar(id,size=42) {
+  const appearance = state?.agents.find(agent=>agent.id===id)?.appearance || id;
+  return characterAvatar(appearance,size);
+}
+function editableName(a) {
+  return `<h2 class="editable-agent-name"><span data-agent-heading-name>${esc(a.name)}</span><button type="button" class="icon-button" data-action="edit-character" data-id="${a.id}" aria-label="이름과 캐릭터 수정" title="이름과 캐릭터 수정">${icon('pencil',21.6)}</button></h2>`;
+}
+function editCharacter(id) {
+  const a={...agentById(id),...saveEntry(id)?.draft};
+  openModal(`<h2>이름과 캐릭터 수정</h2><form id="character-form" data-id="${id}"><label class="field-label" for="character-name">이름</label><input id="character-name" name="name" value="${esc(a.name)}" maxlength="40" required><label class="field-label">캐릭터</label><div class="character-picker">${Object.entries(CHARACTER_CATALOG).map(([key,label])=>`<label class="character-choice"><input type="radio" name="appearance" value="${key}" ${(a.appearance||id)===key?'checked':''} required><span>${characterAvatar(key,64)}<small>${label}</small></span></label>`).join('')}</div><div class="modal-footer"><button type="button" class="button subtle-button" data-action="agent-details" data-id="${id}">취소</button><button type="submit" class="button primary">저장하기</button></div></form>`);
+}
 const app = document.querySelector('#app');
 const modal = document.querySelector('#modal');
 const profiles = Object.fromEntries(Object.entries(MODEL_CATALOG).map(([key, model])=>[key, model.label]));
@@ -144,7 +156,7 @@ function sound() {
   [0,.16,.32].forEach((offset,i) => {
     const oscillator=ctx.createOscillator(), gain=ctx.createGain(), start=ctx.currentTime+offset;
     oscillator.type='sine'; oscillator.frequency.value=[523,659,784][i];
-    gain.gain.setValueAtTime(0,start); gain.gain.linearRampToValueAtTime(.18,start+.012);
+    gain.gain.setValueAtTime(0,start); gain.gain.linearRampToValueAtTime(.45,start+.012);
     gain.gain.exponentialRampToValueAtTime(.001,start+.22);
     oscillator.connect(gain); gain.connect(ctx.destination); oscillator.start(start); oscillator.stop(start+.23);
     oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
@@ -220,7 +232,7 @@ async function flushAgentSave(id,scope=selectedComputerId) {
     const saved=agents.find(agent=>agent.id===id);if(saved)Object.assign(saved,result.agent);
     if(scope===selectedComputerId)Object.assign(agentById(id),result.agent);
     if (!entry.pending) { entry.draft = null; entry.failed = null; saveStatus(id, '자동 저장됨',false,scope); }
-    if(scope===selectedComputerId){updateAgents();updateOffice();const heading=modal.querySelector('.modal-agent-heading h2');if(heading&&(modal.querySelector(`#agent-form[data-id="${id}"]`)||(id==='secretary'&&modal.querySelector('#secretary-name'))))heading.textContent=result.agent.name;}
+    if(scope===selectedComputerId){updateAgents();updateOffice();const heading=modal.querySelector('[data-agent-heading-name]');if(heading&&(modal.querySelector(`#agent-form[data-id="${id}"]`)||(id==='secretary'&&modal.querySelector('#secretary-name'))))heading.textContent=result.agent.name;}
   }).catch(error => {
     entry.failed = patch; saveStatus(id, `저장 실패 · ${error.message}`, true,scope); toast(error.message, true);
   }).finally(() => { entry.inflight = null; if (entry.pending) void flushAgentSave(id,scope); });
@@ -262,7 +274,7 @@ function updateInbox() {
   lists.forEach(list=>{list.innerHTML=markup;});
 }
 function openMailbox() {
-  openModal(`<h2>편지함</h2><div class="inbox-toolbar"><div class="inbox-filters"><button data-action="mailbox-filter" data-filter="all">모든 편지</button><button data-action="mailbox-filter" data-filter="unread">안 읽은 편지</button></div><button class="small-button" data-action="read-all-letters">${icon('check',15)}모두 읽음</button></div><div id="modal-inbox-list" class="inbox-list"></div>`, 'mailbox-modal');
+  openModal(`<div class="mailbox-title-row"><h2>편지함</h2>${historyTrash('letters')}</div><div class="inbox-toolbar"><div class="inbox-filters"><button data-action="mailbox-filter" data-filter="all">모든 편지</button><button data-action="mailbox-filter" data-filter="unread">안 읽은 편지</button></div><button class="small-button" data-action="read-all-letters">${icon('check',15)}모두 읽음</button></div><div id="modal-inbox-list" class="inbox-list"></div>`, 'mailbox-modal');
   updateInbox();
 }
 async function letterDetails(id) {
@@ -296,7 +308,7 @@ function shell() {
     <div class="layout">
       <aside class="rail" id="navigation-sidebar">
         <a class="brand" href="/" aria-label="PX Office 사무실"><span class="brand-symbol">${icon('office',24)}</span><span>PX<span class="brand-light"> OFFICE</span><small>PERSONAL AGENT WORKSPACE</small></span></a>
-        <div class="workspace-tag"><i class="tiny-square"></i><b id="office-label">${esc(state.office.name)} 사무실</b> <span>v1.0</span></div>
+        <div class="workspace-tag"><i class="tiny-square"></i><b id="office-label">${esc(state.office.name)} 사무실</b> <span>v2.0</span></div>
         <div class="rail-label">WORKSPACE</div>
         <nav aria-label="주 메뉴">${navItem('office','사무실','office')}${navItem('inbox','편지함','mail')}${navItem('tasks','작업 현황','tasks')}${navItem('logs','활동 기록','logs')}</nav>
         <div class="rail-bottom"><button class="account-usage" data-action="usage-details" aria-label="구독 사용량과 초기화권 보기" title="구독 사용량과 초기화권"><span class="usage-heading">${icon('tasks',20)}<b>구독 사용량</b></span><span id="account-usage-content"></span></button><div class="owner"><span class="owner-avatar">B</span><div><b>사장님</b><span>이 사무실의 유일한 인간</span></div><span class="owner-crown">♛</span></div></div>
@@ -346,11 +358,33 @@ window.addEventListener('resize',closeOfficeMenu);window.addEventListener('scrol
 function leftSidebarControl() {
   return `<button class="icon-button sidebar-toggle left-sidebar-toggle" data-action="toggle-left-sidebar" aria-controls="navigation-sidebar" aria-expanded="${leftSidebarOpen}" aria-label="왼쪽 사이드바 ${leftSidebarOpen?'닫기':'열기'}"><span aria-hidden="true">◀</span></button>`;
 }
+function historyTrash(kind) {
+  return `<button class="button subtle-button history-trash" data-action="history-cleanup" data-id="${kind}" aria-label="${{letters:'편지함',tasks:'작업 현황',logs:'활동 기록'}[kind]} 삭제" title="기록 비우기"><span aria-hidden="true">🗑️</span><span>비우기</span></button>`;
+}
+function historyCleanup(kind) {
+  const name={letters:'편지함',tasks:'작업 현황',logs:'활동 기록'}[kind];
+  const today=new Date(), date=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  openModal(`<h2>${name} 삭제</h2><p class="field-hint">현재 사무실의 ${name}만 삭제해요.${kind==='tasks'?' 실행·대기 중인 작업과 진행 중인 Goal은 유지돼요. 종료 날짜를 기준으로 정리해요.':''}</p><div class="cleanup-options"><button class="button subtle-button" data-action="preview-history-delete" data-id="${kind}" data-range="all">전체 삭제</button><label class="field-label" for="cleanup-date">기준 날짜</label><input id="cleanup-date" type="date" value="${date}" required><p class="field-hint">선택한 날짜의 00:00 이전 기록을 삭제해요. 해당 날짜의 기록은 남아요.</p><button class="button subtle-button" data-action="preview-history-delete" data-id="${kind}" data-range="before">선택한 날짜 이전 삭제</button></div><div id="cleanup-preview" role="status"></div>`, 'history-cleanup-modal');
+}
+async function previewHistoryDelete(button) {
+  const kind=button.dataset.id,range=button.dataset.range,scope=selectedComputerId;
+  const date=modal.querySelector('#cleanup-date');
+  if(range==='before'&&!date.reportValidity())return;
+  const cutoff=range==='before'?new Date(`${date.value}T00:00:00`).getTime():undefined;
+  button.disabled=true;
+  try {
+    const result=await api('history/preview','POST',{kind,range,cutoff,officeId:scope});
+    const counts=result.counts,total=Object.values(counts).reduce((a,b)=>a+b,0);
+    const description=kind==='tasks'?`작업 ${counts.tasks}개 · Goal ${counts.goals}개`:`${kind==='letters'?'편지':'활동 기록'} ${total}개`;
+    modal.querySelector('#cleanup-preview').innerHTML=`<div class="cleanup-confirm"><p>${range==='all'?'전체':esc(date.value)+' 이전'} 삭제 대상: <b>${description}</b></p><p class="field-hint">삭제하면 복구할 수 없어요.</p><button class="button danger" data-action="confirm-history-delete" data-token="${result.token}" data-scope="${esc(scope)}" ${total?'':'disabled'}>확인 후 삭제</button></div>`;
+  } finally {button.disabled=false;}
+}
 function viewControls() {
-  return `<div class="view-controls"><button class="button primary office-mail-button" ${view==='office'?'data-action="open-mailbox"':'data-view="inbox"'} aria-label="편지함 열기" title="편지함 열기">${icon('mail',22)}<span class="mail-alert" hidden aria-hidden="true"></span></button><button class="icon-button sidebar-toggle" data-action="toggle-sidebar" aria-controls="agent-sidebar" aria-expanded="${sidebarOpen}" aria-label="오른쪽 사이드바 ${sidebarOpen?'닫기':'열기'}" title="오른쪽 사이드바 ${sidebarOpen?'닫기':'열기'}"><span aria-hidden="true">▶</span></button></div>`;
+  return `<div class="view-controls">${view==='office'?`<button class="icon-button agent-presets-button" data-action="agent-presets" aria-label="에이전트 모델 추론 프리셋" title="에이전트 모델 추론 프리셋"><span aria-hidden="true">🤖</span></button>`:''}<button class="button primary office-mail-button" ${view==='office'?'data-action="open-mailbox"':'data-view="inbox"'} aria-label="편지함 열기" title="편지함 열기">${icon('mail',22)}<span class="mail-alert" hidden aria-hidden="true"></span></button><button class="icon-button sidebar-toggle" data-action="toggle-sidebar" aria-controls="agent-sidebar" aria-expanded="${sidebarOpen}" aria-label="오른쪽 사이드바 ${sidebarOpen?'닫기':'열기'}" title="오른쪽 사이드바 ${sidebarOpen?'닫기':'열기'}"><span aria-hidden="true">▶</span></button></div>`;
 }
 function heading(title, subtitle, button = true) {
-  return `<div class="page-heading">${leftSidebarControl()}<div><span class="eyebrow">${view==='office'?'A GOOD DAY TO MAKE THINGS':view==='tasks'?'ONE THING AT A TIME':'EVERY LITTLE STEP'}</span><h1>${title}<span class="heading-pixel" aria-hidden="true">✦</span></h1><p>${subtitle}</p></div>${button?`<button class="button primary" data-action="new-task">${icon('plus',17)}일 시키기<span class="shortcut" aria-hidden="true">N</span></button>`:''}${viewControls()}</div>`;
+  const trash={inbox:'letters',tasks:'tasks',logs:'logs'}[view];
+  return `<div class="page-heading">${leftSidebarControl()}<div><span class="eyebrow">${view==='office'?'A GOOD DAY TO MAKE THINGS':view==='tasks'?'ONE THING AT A TIME':'EVERY LITTLE STEP'}</span><h1>${title}<span class="heading-pixel" aria-hidden="true">✦</span></h1><p>${subtitle}</p></div>${button?`<button class="button primary" data-action="new-task">${icon('plus',17)}일 시키기<span class="shortcut" aria-hidden="true">N</span></button>`:''}${trash?historyTrash(trash):''}${viewControls()}</div>`;
 }
 function renderView() {
   updateKeyboardSound();
@@ -439,10 +473,10 @@ function updateAgents() {
     const expanded = selected ? `
       <div class="agent-expanded">
         <div class="agent-current">${currentMarkup(a)}</div>
-        <label class="model-label" for="model-${a.id}">${icon('spark',13)} 모델 <span>변경 가능</span></label>
-        <select class="model-select" id="model-${a.id}" data-model="${a.id}">${options(a.profile)}</select>
+        <label class="model-label" for="model-${a.id}">${icon('spark',13)} 모델 <span>${FIXED_AGENT_IDS.includes(a.id)?'고정':'변경 가능'}</span></label>
+        <select class="model-select" id="model-${a.id}" data-model="${a.id}" ${FIXED_AGENT_IDS.includes(a.id)?'disabled':''}>${options(a.profile)}</select>
         <label class="model-label reasoning-label" for="reasoning-${a.id}">${icon('spark',13)} 추론 레벨</label>
-        <select class="model-select" id="reasoning-${a.id}" data-reasoning="${a.id}">${reasoningOptions(a.profile,a.reasoningEffort)}</select>
+        <select class="model-select" id="reasoning-${a.id}" data-reasoning="${a.id}" ${FIXED_AGENT_IDS.includes(a.id)?'disabled':''}>${reasoningOptions(a.profile,a.reasoningEffort)}</select>
         <div class="agent-actions">
           <button class="small-button" data-action="${a.id==='secretary'?'secretary':'assign'}" data-id="${a.id}" ${a.status==='running'?'disabled':''}>${icon('plus',13)}${a.id==='secretary'?'진행 상황 묻기':'작업 배정'}</button>
           <button class="small-button" data-action="agent-details" data-id="${a.id}">${icon('settings',13)}상세 설정</button>
@@ -459,8 +493,30 @@ function updateAgents() {
       </article>`;
   }).join('');
 }
+function updateDepartmentSpeed() {
+  document.querySelectorAll('[data-fast-flame]').forEach(flame => {
+    flame.style.display = state.agents.find(agent => agent.id === flame.dataset.fastFlame)?.fastMode === true ? '' : 'none';
+  });
+  document.querySelectorAll('.department-speed').forEach(button => {
+    const agents = state.agents.filter(agent => agent.department === button.dataset.id);
+    const fast = agents.length > 0 && agents.every(agent => agent.fastMode === true);
+    button.textContent = fast ? 'Fast' : 'Normal';
+    button.setAttribute('aria-pressed', String(fast));
+    const department = button.dataset.id;
+    document.querySelectorAll('[data-department-scene]').forEach(scene => {
+      if(scene.dataset.departmentScene === department) scene.style.display = (scene.dataset.sceneMode === 'fast') === fast ? '' : 'none';
+    });
+    document.querySelectorAll('[data-department-shelf]').forEach(shelf => {
+      if(shelf.dataset.departmentShelf === department) shelf.classList.toggle('fast-shelf', fast);
+    });
+    document.querySelectorAll('[data-department-sign]').forEach(sign => {
+      if(sign.dataset.departmentSign === department) sign.setAttribute('transform', fast ? 'rotate(5 780 366)' : 'rotate(0 780 366)');
+    });
+  });
+}
 function updateMain() {
   if (view==='office') {
+    updateDepartmentSpeed();
     const badge = document.querySelector('#mode-badge'); badge.textContent = state.mode==='codex'?'CODEX · 구독':state.mode==='demo'?'DEMO MODE':'MODEL API'; badge.classList.toggle('api-mode',state.mode!=='demo');
   } else if (view==='inbox') {
     updateInbox();
@@ -488,6 +544,9 @@ function currentMarkup(a) {
 function updateOffice() {
   state.agents.forEach(a=>{
     const el = document.querySelector(`#office-svg [data-agent="${a.id}"]`); if (!el) return;
+    const character=el.querySelector('.character-bob');
+    const appearance=a.appearance||a.id;
+    if(character.dataset.appearance!==appearance){character.innerHTML=sprite(appearance,4,-8,2);character.dataset.appearance=appearance;}
     el.classList.toggle('is-running', a.status==='running'); el.classList.toggle('is-selected',a.id===selectedAgent);
     document.querySelector(`[data-nameplate="${a.id}"] .agent-indicator`).setAttribute('fill',a.status==='running'?'#9ad985':'#92948e');
     el.setAttribute('aria-label',`${a.name} · ${a.status==='running'?'실행 중':'대기 중'} · ${profiles[a.profile]} · 추론 ${REASONING_LEVELS[a.reasoningEffort]} · 설정 열기`);
@@ -515,7 +574,7 @@ function updateSecretary() {
 function secretaryDetails() {
   const a={...agentById('secretary'),...saveEntry('secretary')?.draft};
   selectedAgent='secretary';updateAgents();updateOffice();
-  openModal(`<div class="modal-agent-heading"><span class="avatar">${avatar('secretary',52)}</span><div><div class="modal-eyebrow">사장실 비서</div><h2>${esc(a.name)}</h2><p>사장님, 지금 무슨 일이 진행 중인지 알려드릴게요.</p></div></div><div class="secretary-model-settings"><label class="field-label" for="secretary-name">이름</label><input id="secretary-name" value="${esc(a.name)}" maxlength="40" required><label class="field-label" for="secretary-profile">모델</label><select id="secretary-profile">${options(a.profile)}</select><label class="field-label" for="secretary-reasoning">추론 레벨</label><select id="secretary-reasoning">${reasoningOptions(a.profile,a.reasoningEffort)}</select><p class="field-hint">사장님 전용 비서 · ${esc(agentById('chief').name)}가 배정하거나 제어할 수 없어요.</p><span id="secretary-save-status" role="status">변경하면 자동 저장돼요</span></div><div id="secretary-live" class="secretary-live"></div><div class="secretary-questions"><button class="button subtle-button" data-action="ask-secretary" data-question="${esc(agentById('chief').name)} 지금 무슨 일 하고 있어?">무슨 일 하고 있어?</button><button class="button subtle-button" data-action="ask-secretary" data-question="현재 작업 진행 상황 어때?">진행 상황 어때?</button></div><form id="secretary-form"><label class="field-label" for="secretary-question">${esc(a.name)}에게 물어보기</label><input id="secretary-question" name="question" required maxlength="2000" placeholder="${esc(agentById('chief').name)} 작업 진행 상황 어때?"><button class="button primary" type="submit">물어보기</button></form><pre id="secretary-answer" class="result-text" aria-live="polite"></pre>`, 'secretary-modal');
+  openModal(`<div class="modal-agent-heading"><span class="avatar">${avatar('secretary',52)}</span><div><div class="modal-eyebrow">사장실 비서</div>${editableName(a)}<p>사장님, 지금 무슨 일이 진행 중인지 알려드릴게요.</p></div></div><div class="secretary-model-settings"><label class="field-label" for="secretary-name">이름</label><input id="secretary-name" value="${esc(a.name)}" maxlength="40" required><label class="field-label" for="secretary-reasoning">추론 레벨</label><select id="secretary-reasoning" disabled>${reasoningOptions(a.profile,a.reasoningEffort)}</select><p class="field-hint">사장님 전용 비서 · ${esc(agentById('chief').name)}가 배정하거나 제어할 수 없어요.</p><span id="secretary-save-status" role="status">변경하면 자동 저장돼요</span></div><div id="secretary-live" class="secretary-live"></div><div class="secretary-questions"><button class="button subtle-button" data-action="ask-secretary" data-question="${esc(agentById('chief').name)} 지금 무슨 일 하고 있어?">무슨 일 하고 있어?</button><button class="button subtle-button" data-action="ask-secretary" data-question="현재 작업 진행 상황 어때?">진행 상황 어때?</button></div><form id="secretary-form"><label class="field-label" for="secretary-question">${esc(a.name)}에게 물어보기</label><input id="secretary-question" name="question" required maxlength="2000" placeholder="${esc(agentById('chief').name)} 작업 진행 상황 어때?"><button class="button primary" type="submit">물어보기</button></form><pre id="secretary-answer" class="result-text" aria-live="polite"></pre>`, 'secretary-modal');
   updateSecretary();
 }
 async function askSecretary(question) {
@@ -561,13 +620,29 @@ function agentDetails(id) {
   if(id==='secretary'){secretaryDetails();return;}
   const a = { ...agentById(id), ...saveEntry(id)?.draft }; selectedAgent=id; updateAgents(); updateOffice();
   const task = state.tasks.find(t=>t.id===a.activeTaskId);
-  openModal(`<div class="modal-agent-heading"><span class="avatar" style="--avatar-color:${a.color}">${avatar(id,60)}</span><div><div class="modal-eyebrow">${a.department}</div><h2>${esc(a.name)}</h2><span class="agent-state ${a.status==='running'?'working':''}"><i class="dot agent-status-dot ${a.status==='running'?'green':''}"></i>${a.status==='running'?'실행 중':'대기 중'}</span></div></div>${task?`<div class="current-task-note">현재 작업: ${esc(task.title)}</div>`:''}<form id="agent-form" data-id="${id}"><label class="field-label" for="agent-name">이름</label><input id="agent-name" name="name" value="${esc(a.name)}" maxlength="40" required><label class="field-label" for="agent-profile">모델</label><select id="agent-profile" name="profile">${options(a.profile)}</select><label class="field-label" for="agent-reasoning">추론 레벨</label><select id="agent-reasoning" name="reasoningEffort">${reasoningOptions(a.profile,a.reasoningEffort)}</select><p class="field-hint">모델과 추론 레벨은 다음 모델 호출부터 적용돼요.</p><label class="field-label" for="agent-prompt">역할과 작업 지침</label><textarea id="agent-prompt" name="prompt" rows="6" maxlength="4000" required>${esc(a.prompt)}</textarea><label class="field-label" for="agent-fixed-prompt">고정 프롬프트</label><textarea id="agent-fixed-prompt" name="fixedPrompt" rows="4" maxlength="12000" placeholder="예: 모든 답변은 한국어로 작성하고, 결론을 먼저 보고해줘.">${esc(a.fixedPrompt)}</textarea><p class="field-hint">이 에이전트의 모든 작업에 함께 적용할 지침이에요. 저장하면 다음 모델 호출부터 적용돼요.</p><div class="agent-history"><h3>최근 작업</h3>${[...state.tasks].reverse().filter(t=>t.agentId===id).slice(0,3).map(t=>`<button type="button" data-action="task-details" data-id="${t.id}">${pill(t)}<span>${esc(t.title)}</span>${icon('chevron',13)}</button>`).join('')||'<p>아직 맡긴 작업이 없어요.</p>'}</div><div class="modal-footer"><button type="button" class="button subtle-button" data-action="assign" data-id="${id}" ${a.status==='running'?'disabled':''}>${icon('plus',15)}작업 배정</button><div class="autosave-indicator"><span id="agent-save-status" role="status">변경하면 자동 저장돼요</span><button class="text-button" type="button" data-action="retry-agent-save" data-id="${id}">저장 재시도</button></div></div></form>`);
+  openModal(`<div class="agent-assign-top"><button type="button" class="button subtle-button" data-action="assign" data-id="${id}" ${a.status==='running'?'disabled':''}>${icon('plus',15)}작업 배정</button></div><div class="modal-agent-heading"><span class="avatar" style="--avatar-color:${a.color}">${avatar(id,60)}</span><div><div class="modal-eyebrow">${a.department}</div>${editableName(a)}<span class="agent-state ${a.status==='running'?'working':''}"><i class="dot agent-status-dot ${a.status==='running'?'green':''}"></i>${a.status==='running'?'실행 중':'대기 중'}</span></div></div>${task?`<div class="current-task-note">현재 작업: ${esc(task.title)}</div>`:''}<form id="agent-form" data-id="${id}"><label class="field-label" for="agent-name">이름</label><input id="agent-name" name="name" value="${esc(a.name)}" maxlength="40" required><label class="field-label" for="agent-reasoning">추론 레벨</label><select id="agent-reasoning" name="reasoningEffort" ${FIXED_AGENT_IDS.includes(id)?'disabled':''}>${reasoningOptions(a.profile,a.reasoningEffort)}</select><p class="field-hint">추론 레벨은 다음 모델 호출부터 적용돼요.</p><label class="field-label" for="agent-prompt">역할과 작업 지침</label><textarea id="agent-prompt" name="prompt" rows="6" maxlength="4000" required>${esc(a.prompt)}</textarea><label class="field-label" for="agent-fixed-prompt">고정 프롬프트</label><textarea id="agent-fixed-prompt" name="fixedPrompt" rows="4" maxlength="12000" placeholder="예: 모든 답변은 한국어로 작성하고, 결론을 먼저 보고해줘.">${esc(a.fixedPrompt)}</textarea><p class="field-hint">이 에이전트의 모든 작업에 함께 적용할 지침이에요. 저장하면 다음 모델 호출부터 적용돼요.</p><div class="agent-history"><h3>최근 작업</h3>${[...state.tasks].reverse().filter(t=>t.agentId===id).slice(0,3).map(t=>`<button type="button" data-action="task-details" data-id="${t.id}">${pill(t)}<span>${esc(t.title)}</span>${icon('chevron',13)}</button>`).join('')||'<p>아직 맡긴 작업이 없어요.</p>'}</div><div class="modal-footer"><div class="autosave-indicator"><span id="agent-save-status" role="status">변경하면 자동 저장돼요</span><button class="text-button" type="button" data-action="retry-agent-save" data-id="${id}">저장 재시도</button></div></div></form>`);
 }
 function taskDetails(id) {
   const task = state.tasks.find(t=>t.id===id); if(!task) return;
   const logs = state.logs.filter(l=>l.taskId===id);
   openModal(`<div class="modal-eyebrow">MISSION DETAILS ${task.runMode==='codex'?'· CODEX':task.runMode==='demo'?'· DEMO':''}</div><h2 class="task-modal-title">${esc(task.title)}</h2><div class="task-meta">${pill(task)}<span>${avatar(task.agentId,24)}${esc(agentById(task.agentId).name)}</span><span>${icon('clock',14)}${duration(task)}</span></div>${running(task)?`<div class="progress detail-progress"><i style="width:${task.progress}%"></i></div><p class="field-hint">${task.runMode==='codex'?'단계별 진행률이에요. 실제 실행 명령과 파일 변경은 아래 타임라인에 표시돼요.':'진행 상황은 사이드바에서 실시간으로 볼 수 있어요.'}</p>`:''}${task.runMode==='codex'?`<div class="task-execution-facts"><span>작업 대상 <b>${esc(task.computerName || state.computer.name)}</b></span><span>작업 폴더 <code>${esc(task.remoteDirectory || task.workingDirectory)}</code></span></div>`:''}<label class="field-label">요청 내용</label><div class="task-description">${esc(task.description)}</div>${task.error?`<div class="task-error">${esc(task.error)}</div>`:''}${task.result?`<div class="result-heading"><label class="field-label">${task.agentId==='chief'?esc(agentById('chief').name)+'의 보고':'작업 결과'}</label><button class="small-button" data-action="copy-result" data-id="${id}">${icon('copy',13)}복사</button><button class="small-button" data-action="download-result" data-id="${id}">${icon('download',13)}저장</button></div><pre class="result-text">${esc(task.result)}</pre>`:''}${task.workerResult && task.agentId==='chief' && task.runMode==='codex'?`<details class="worker-result"><summary>담당 에이전트 원본 결과</summary><pre class="result-text">${esc(task.workerResult)}</pre></details>`:''}<div class="task-timeline"><h3>작업 타임라인</h3>${logs.map(l=>`<div><i class="timeline-dot"></i><time>${time(l.at)}</time><span>${esc(l.message)}</span></div>`).join('')||'<p>아직 실행 전이에요.</p>'}</div><div class="modal-footer"><span>${task.modelUsed?'사용 모델: '+esc(task.modelUsed)+(task.reasoningUsed?' · 추론 '+esc(task.reasoningUsed):''):task.runMode==='demo'?'데모 실행 결과':'서버에 저장되는 작업'}</span>${['done','failed','stopped'].includes(task.status)?`<button class="button subtle-button" data-action="continue-task" data-id="${id}">${icon('arrow',15)}이어서 작업</button>`:''}${task.goalId?`<button class="button primary" data-action="goal-details" data-id="${task.goalId}">${icon('target',15)}Goal 보기</button>`:running(task)||task.status==='queued'?`<button class="button danger" data-action="stop-task" data-id="${id}">${icon('stop',15)}작업 중지</button>`:`<button class="button primary" data-action="retry-task" data-id="${id}">${icon('refresh',15)}다시 실행</button>`}</div>`, 'wide-modal');
   modalTaskId = id; modalTaskSignature = `${task.status}:${task.progress}:${task.result}:${task.error}:${logs.length}`;
+}
+function presetSummary(values) {
+  return `<div class="preset-summary">${state.agents.map(a=>{const value=FIXED_AGENT_IDS.includes(a.id)?{profile:'luna',reasoningEffort:'medium'}:values[a.id];return `<div><span>${esc(a.name)}</span><b>${profiles[value.profile]} / ${value.reasoningEffort[0].toUpperCase()+value.reasoningEffort.slice(1)}</b></div>`;}).join('')}</div>`;
+}
+function agentPresets() {
+  const current=agentPresetValues(state.agents);
+  const matches=values=>state.agents.every(a=>{const value=FIXED_AGENT_IDS.includes(a.id)?{profile:'luna',reasoningEffort:'medium'}:values[a.id];return value&&a.profile===value.profile&&a.reasoningEffort===value.reasoningEffort;});
+  const card=(id,preset,custom=false)=>`<article class="preset-card ${matches(preset.agents)?'active':''}"><div class="preset-card-heading"><h3>${esc(preset.name)}</h3>${matches(preset.agents)?'<span>현재 설정</span>':''}</div>${presetSummary(preset.agents)}<div class="preset-card-actions"><button class="button primary" data-action="apply-agent-preset" data-id="${id}">적용하기</button>${custom?`<button class="text-button" data-action="delete-agent-preset" data-id="${id}">삭제</button>`:''}</div></article>`;
+  openModal(`<h2>에이전트 모델 추론 프리셋</h2><p class="field-hint">선택하면 다음 모델 호출부터 적용돼요. 따까리·말똥이·비둘기는 항상 Luna / Medium이에요.</p><div class="preset-grid">${Object.entries(AGENT_PRESETS).map(([id,preset])=>card(id,preset)).join('')}</div><h3>내 프리셋</h3><form id="agent-preset-form"><label class="field-label" for="agent-preset-name">현재 설정 저장</label><div class="preset-save-row"><input id="agent-preset-name" name="name" maxlength="40" required placeholder="프리셋 이름"><button class="button primary" type="submit">저장하기</button></div><details><summary>현재 모델·추론 레벨 보기</summary>${presetSummary(current)}</details></form><div class="preset-grid custom-preset-grid">${(state.agentPresets||[]).map(preset=>card(preset.id,preset,true)).join('')||'<p class="field-hint">현재 조합을 저장해 나만의 프리셋을 만들어보세요.</p>'}</div>`, 'agent-presets-modal');
+}
+async function changeAgentPreset(action,presetId,name) {
+  const scope=selectedComputerId;
+  for(const agent of state.agents){let entry=saveEntry(agent.id,scope);while(entry?.pending||entry?.inflight){await flushAgentSave(agent.id,scope);entry=saveEntry(agent.id,scope);}if(entry?.failed)throw new Error('에이전트 설정 저장을 재시도해주세요.');}
+  await api('agent-presets','POST',{action,presetId,name,officeId:scope});
+  rawState=await api('state');applyOffice();update();agentPresets();
+  toast(action==='apply'?'프리셋을 적용했어요.':action==='save'?'내 프리셋을 저장했어요.':'내 프리셋을 삭제했어요.');
 }
 function settings() {
   openModal(`<div class="modal-eyebrow">MAKE YOURSELF AT HOME</div><h2>사무실 설정</h2><p class="modal-intro">PC에 로그인된 Codex로 동료들이 실제 작업을 수행해요.</p>${window.pxDesktop?'<button class="button subtle-button" data-action="desktop-setup">Codex 계정·연결 설정</button>':''}
@@ -625,6 +700,22 @@ async function handleClick(event) {
     if(action==='retry-agent-save') { const entry=saveEntry(id); if(entry?.failed) { entry.pending={...entry.failed,editRevision:++editRevision}; await flushAgentSave(id); } }
     if(action==='usage-details') usageDetails();
     if(action==='refresh-usage') { button.disabled=true; await refreshAccountUsage(); button.disabled=false; }
+    if(action==='department-speed') {
+      if(button.disabled) return;
+      const scope = selectedComputerId;
+      const fastMode = button.getAttribute('aria-pressed') !== 'true';
+      button.disabled = true;
+      try {
+        await api(`departments/${encodeURIComponent(id)}/speed`, 'PATCH', {officeId:scope, fastMode});
+        rawState = await api('state'); applyOffice(); update();
+      } finally { button.disabled = false; }
+    }
+    if(action==='edit-character') editCharacter(id);
+    if(action==='agent-presets') agentPresets();
+    if(action==='apply-agent-preset'||action==='delete-agent-preset'){button.disabled=true;try{await changeAgentPreset(action==='apply-agent-preset'?'apply':'delete',id);}finally{button.disabled=false;}}
+    if(action==='history-cleanup') historyCleanup(id);
+    if(action==='preview-history-delete') await previewHistoryDelete(button);
+    if(action==='confirm-history-delete'){button.disabled=true;try{await api('history/delete','POST',{token:button.dataset.token,officeId:button.dataset.scope});rawState=await api('state');applyOffice();modal.close();update();toast('선택한 기록을 삭제했어요.');}finally{button.disabled=false;}}
     if(action==='settings') settings();
     if(action==='desktop-setup'){modal.close();events?.close();setupCleanup=await renderSetup({app,api,onComplete:async chooseComputer=>{if(!chooseComputer){selectedComputerId='local';localStorage.setItem('px-target-computer','local');}await initialize();if(chooseComputer)computerDetails();}});}
     if(action==='computer') computerDetails();
@@ -662,8 +753,9 @@ app.addEventListener('change', async event=>{
   if(event.target.id==='task-filter') { filter=event.target.value; updateMain(); }
 });
 modal.addEventListener('change', event=>{
-  if(event.target.id==='secretary-profile'||event.target.id==='secretary-reasoning') {
-    const profile=document.querySelector('#secretary-profile').value;
+  if(event.target.id==='cleanup-date')modal.querySelector('#cleanup-preview').innerHTML='';
+  if(event.target.id==='secretary-reasoning') {
+    const profile=agentById('secretary').profile;
     let effort=document.querySelector('#secretary-reasoning').value;
     if(!MODEL_CATALOG[profile].efforts.includes(effort))effort='medium';
     document.querySelector('#secretary-reasoning').innerHTML=reasoningOptions(profile,effort);
@@ -671,10 +763,6 @@ modal.addEventListener('change', event=>{
   }
 
   if(event.target.id==='executor') document.querySelector('#advanced-connection').open=event.target.value==='api';
-  if (event.target.id==='agent-profile') {
-    const reasoning = document.querySelector('#agent-reasoning');
-    reasoning.innerHTML = reasoningOptions(event.target.value,reasoning.value);
-  }
   const form=event.target.closest('#agent-form'); if(form) queueAgentSave(form,true);
 });
 modal.addEventListener('input',event=>{if(event.target.id==='secretary-name'){const name=event.target.value.trim();if(name)queueAgentPatch('secretary',{name});else saveStatus('secretary','이름을 입력하면 자동 저장돼요.');}const form=event.target.closest('#agent-form');if(form) queueAgentSave(form);});
@@ -688,6 +776,14 @@ modal.addEventListener('submit',async event=>{
   try {
     if(form.id==='secretary-form'){try{await askSecretary(data.question);}finally{if(button)button.disabled=false;}}
     if(form.id==='task-form') { const isGoal=form.querySelector('[data-action="toggle-goal"]').getAttribute('aria-pressed')==='true'; await api(isGoal?'goals':'tasks','POST',{...data,tailWeb:form.querySelector('[data-action="toggle-tail-web"]').getAttribute('aria-pressed')==='true',...(!isGoal?{requireIdle:true}:{})}); modal.close(); if(isGoal) { view='tasks'; renderView(); } toast(isGoal?'Goal을 맡겼어요. 달성까지 이어서 진행해요.':'작업을 맡겼어요. 보고는 편지함으로 도착해요.'); }
+    if(form.id==='agent-preset-form') await changeAgentPreset('save',undefined,data.name);
+    if(form.id==='character-form') {
+      const id=form.dataset.id, scope=selectedComputerId;
+      await flushAgentSave(id);
+      const entry=saveEntry(id);if(entry?.failed)throw new Error('설정 저장을 재시도한 뒤 변경해주세요.');
+      await api(`agents/${id}`,'PATCH',{name:data.name,appearance:data.appearance,officeId:scope});
+      rawState=await api('state');applyOffice();update();agentDetails(id);toast('이름과 캐릭터를 저장했어요.');
+    }
     if(form.id==='computer-settings-form') { await api(`computers/${encodeURIComponent(form.dataset.id)}`,'PATCH',{username:data.username,...(data.sudoPassword?{sudoPassword:data.sudoPassword}:{}),clearSudoPassword:data.clearSudoPassword==='on'});await refreshComputers();modal.close();toast('컴퓨터 접속 설정을 저장했어요.'); }
     if(form.id==='agent-form') { queueAgentSave(form,true); }
     if(form.id==='settings-form') {

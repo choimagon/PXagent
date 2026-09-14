@@ -10,6 +10,7 @@ export function projectOffice(snapshot, id = 'local') {
   const belongs = item => officeId(item) === id;
   return {
     ...snapshot,
+    agentPresets: office?.agentPresets || [],
     office: { id, name: office?.name || (id === 'local' ? snapshot.computer.name : id) },
     agents: office?.agents || snapshot.agents.map(agent => id === 'local' ? agent : { ...agent, status: 'idle', activeTaskId: null, progress: 0 }),
     tasks: snapshot.tasks.filter(belongs),

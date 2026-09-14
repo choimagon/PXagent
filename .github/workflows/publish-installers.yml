@@ -48,7 +48,7 @@ jobs:
           cd release-assets
           sha256sum * > SHA256SUMS
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --draft --title "PXagents $RELEASE_TAG" --notes "모든 에이전트와 비서의 이름을 설정창에서 변경할 수 있습니다. 이름은 자동 저장되고 사무실 명패에 반영됩니다. Windows: EXE 실행 후 i 설치 / c 삭제. macOS·Linux: install.sh 실행. 서명되지 않은 베타 설치파일입니다."
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "PXagents $RELEASE_TAG" --notes-file "$GITHUB_WORKSPACE/RELEASE_NOTES.md"
           fi
           gh release upload "$RELEASE_TAG" ./* --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest

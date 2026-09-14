@@ -68,10 +68,11 @@ export function foldersOverlap(a, b) {
   return inside(a, b) || inside(b, a);
 }
 
-export async function runCodex({ binary, directory, model, reasoningEffort, prompt, signal, schema, extraEnv = {}, sandboxMode = CODEX_PERMISSIONS.sandboxMode, onEvent = () => {}, timeoutMs = 30 * 60_000 }) {
+export async function runCodex({ binary, directory, model, reasoningEffort, fastMode = false, prompt, signal, schema, extraEnv = {}, sandboxMode = CODEX_PERMISSIONS.sandboxMode, onEvent = () => {}, timeoutMs = 30 * 60_000 }) {
   if (signal.aborted) throw signal.reason;
   const args = ['exec', '--ignore-user-config', '--json', '--color', 'never', '--skip-git-repo-check', '--sandbox', sandboxMode, '-C', directory, '-m', model,
     '-c', `approval_policy=${JSON.stringify(CODEX_PERMISSIONS.approvalPolicy)}`, '-c', 'forced_login_method="chatgpt"', '-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`];
+  args.push('-c', `features.fast_mode=${fastMode}`, '-c', `service_tier=${fastMode ? '"fast"' : '"default"'}`);
   if (schema) args.push('--output-schema', schema);
   args.push('-');
   return new Promise((resolve, reject) => {

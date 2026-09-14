@@ -90,16 +90,16 @@ test('model edits persist, invalid edits are rejected, and cross-site mutation i
   assert.equal((await request('tasks','POST',{description:'cross-site'}, {Origin:'https://evil.example'})).status,403);
 });
 test('reasoning options respect model support and invalid updates are atomic',async()=>{
-  await request('agents/misc','PATCH',{profile:'luna',reasoningEffort:'none'});
-  assert.equal((await request('agents/misc','PATCH',{profile:'astra',reasoningEffort:'none'})).status,400);
-  let agent=(await request('state')).data.agents.find(a=>a.id==='misc');
+  await request('agents/format','PATCH',{profile:'luna',reasoningEffort:'none'});
+  assert.equal((await request('agents/format','PATCH',{profile:'astra',reasoningEffort:'none'})).status,400);
+  let agent=(await request('state')).data.agents.find(a=>a.id==='format');
   assert.equal(agent.profile,'luna');assert.equal(agent.reasoningEffort,'none');
-  assert.equal((await request('agents/misc','PATCH',{profile:'astra'})).status,200);
-  agent=(await request('state')).data.agents.find(a=>a.id==='misc');
+  assert.equal((await request('agents/format','PATCH',{profile:'astra'})).status,200);
+  agent=(await request('state')).data.agents.find(a=>a.id==='format');
   assert.equal(agent.profile,'astra');assert.equal(agent.reasoningEffort,'medium');
-  assert.equal((await request('agents/misc','PATCH',{reasoningEffort:'ultra'})).status,400);
-  assert.equal((await request('agents/misc','PATCH',{profile:'sol',prompt:''})).status,400);
-  assert.equal((await request('state')).data.agents.find(a=>a.id==='misc').profile,'astra');
+  assert.equal((await request('agents/format','PATCH',{reasoningEffort:'ultra'})).status,400);
+  assert.equal((await request('agents/format','PATCH',{profile:'sol',prompt:''})).status,400);
+  assert.equal((await request('state')).data.agents.find(a=>a.id==='format').profile,'astra');
 });
 test('API mode calls real endpoint for chief plan, worker result and final report; no secret leaks',async()=>{
   const r=await request('settings','PATCH',{executor:'api',baseUrl:`http://127.0.0.1:${mockPort}/v1`,apiKey:'secret-test-key',models:{luna:'local-luna',terra:'local-terra',sol:'local-sol',astra:'local-astra'}});assert.equal(r.status,200);
@@ -209,7 +209,7 @@ test('legacy preferences and custom model IDs migrate without losing tasks or lo
   await writeFile(path.join(data,'office.json'),JSON.stringify(old));await start();
   const current=(await request('state')).data;
   assert.equal(current.tasks.length,old.tasks.length);assert.equal(current.logs.length,old.logs.length);
-  assert.equal(current.agents[0].profile,'terra');assert.equal(current.agents[1].profile,'sol');assert.equal(current.agents[2].profile,'luna');
+  assert.equal(current.agents[0].profile,'terra');assert.equal(current.agents[1].profile,'luna');assert.equal(current.agents[2].profile,'luna');
   assert.equal(current.settings.models.sol,'old-custom-strong');assert.equal(current.settings.models.terra,'old-custom-balanced');assert.equal(current.settings.models.luna,'old-custom-fast');
   assert.equal(current.settings.models.astra,'gpt-6-astra');assert.ok(current.agents.every(a=>a.reasoningEffort==='medium'));
   assert.equal(current.schemaVersion,5);assert.ok(current.agents.every(a=>a.fixedPrompt===''));
@@ -297,4 +297,46 @@ test('all agent names persist and invalid names do not change settings',async()=
       assert.deepEqual((await request('state')).data.agents.find(a=>a.id==='dev'),saved.find(a=>a.id==='dev'));
     }
   } finally {for(const agent of original)await request(`agents/${agent.id}`,'PATCH',{name:agent.name});}
+});
+
+
+test('character appearance is validated atomically and persisted',async()=>{
+  const before=(await request('state')).data.agents.find(a=>a.id==='dev');
+  assert.equal((await request('agents/dev','PATCH',{name:'invalid-change',appearance:'unknown'})).status,400);
+  assert.equal((await request('state')).data.agents.find(a=>a.id==='dev').name,before.name);
+  assert.equal((await request('agents/dev','PATCH',{appearance:'cat'})).status,200);
+  await stop();await start();
+  assert.equal((await request('state')).data.agents.find(a=>a.id==='dev').appearance,'cat');
+});
+
+
+test('tier presets and custom presets persist per office and enforce fixed models',async()=>{
+  for(const presetId of ['upper','middle','lower']) {
+    assert.equal((await request('agent-presets','POST',{action:'apply',presetId})).status,200);
+    const state=(await request('state')).data;
+    for(const id of ['junior','misc','secretary']){const a=state.agents.find(a=>a.id===id);assert.equal(a.profile,'luna');assert.equal(a.reasoningEffort,'medium');}
+  }
+  assert.equal((await request('agents/misc','PATCH',{profile:'sol'})).status,400);
+  assert.equal((await request('agent-presets','POST',{action:'save',name:'내 프리셋'})).status,200);
+  const saved=(await request('state')).data.offices.local.agentPresets.at(-1);
+  assert.equal((await request('agent-presets','POST',{action:'apply',presetId:'upper'})).status,200);
+  assert.equal((await request('agent-presets','POST',{action:'apply',presetId:saved.id})).status,200);
+  assert.equal((await request('state')).data.agents.find(a=>a.id==='chief').profile,'terra');
+  await stop();await start();
+  assert.equal((await request('state')).data.offices.local.agentPresets.at(-1).id,saved.id);
+});
+
+
+test('history previews isolate confirmed deletion and deleted mail stays deleted after restart',async()=>{
+  assert.equal((await request('history/preview','POST',{kind:'letters',range:'before',cutoff:'bad'})).status,400);
+  assert.equal((await request('history/delete','POST',{token:'invalid'})).status,400);
+  const before=(await request('state')).data;
+  const preview=await request('history/preview','POST',{kind:'letters',range:'all'});
+  assert.equal(preview.status,200);assert.equal(preview.data.counts.letters,before.letters.length);
+  const removed=await request('history/delete','POST',{token:preview.data.token});assert.equal(removed.status,200);
+  assert.equal((await request('state')).data.letters.length,0);
+  assert.equal((await request('state')).data.tasks.length,before.tasks.length);
+  await stop();await start();assert.equal((await request('state')).data.letters.length,0);
+  const logs=await request('history/preview','POST',{kind:'logs',range:'all'});
+  await request('history/delete','POST',{token:logs.data.token});assert.equal((await request('state')).data.logs.length,0);
 });

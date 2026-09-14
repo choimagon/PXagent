@@ -1,4 +1,11 @@
 import {test,expect} from '@playwright/test';
+async function changeDetailModel(page,id,model) {
+  await page.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.locator(`#model-${id}`).selectOption(model);
+  await expect(page.locator(`[data-row="${id}"] .agent-model-name`)).toHaveText(model[0].toUpperCase()+model.slice(1));
+  await page.locator(`#office-svg [data-agent="${id}"]`).click();
+}
+
 
 test('office controls, real-time sidebar, delegation, model changes and persistence',async({page,context})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -15,8 +22,8 @@ test('office controls, real-time sidebar, delegation, model changes and persiste
   await page.screenshot({path:'test-results/office-desktop.png',fullPage:true});
   await page.locator('#office-svg [data-agent="dev"]').click();
   await expect(page.locator('#modal')).toBeVisible();
-  await expect(page.locator('#agent-profile option')).toHaveText(['Luna','Terra','Sol','Astra']);
-  await page.locator('#agent-profile').selectOption('sol');
+  await expect(page.locator('#agent-profile')).toHaveCount(0);
+  await changeDetailModel(page,'dev','sol');
   await page.locator('#agent-reasoning').selectOption('high');
   await page.locator('#agent-fixed-prompt').fill('항상 결론부터 보고하고 코드 검증 방법을 함께 제시해줘.');
   await expect(page.locator('#agent-save-status')).toHaveText('자동 저장됨');
@@ -73,19 +80,19 @@ test('mobile layout has no horizontal overflow and keyboard can open agent setti
   await page.keyboard.press('Escape');await expect(page.locator('#modal')).not.toBeVisible();
 });
 test('Astra excludes none and changing models adjusts unsupported reasoning',async({page})=>{
-  await page.goto('/');await page.locator('#office-svg [data-agent="misc"]').click();
-  await page.locator('#agent-profile').selectOption('luna');
+  await page.goto('/');await page.locator('#office-svg [data-agent="format"]').click();
+  await changeDetailModel(page,'format','luna');
   await page.locator('#agent-reasoning').selectOption('none');
-  await page.locator('#agent-profile').selectOption('astra');
+  await changeDetailModel(page,'format','astra');
   await expect(page.locator('#agent-reasoning')).toHaveValue('medium');
   await expect(page.locator('#agent-reasoning option')).toHaveText(['낮음 · Low','보통 · Medium','높음 · High','매우 높음 · XHigh','최대 · Max']);
   await page.locator('#agent-reasoning').selectOption('xhigh');
   await expect(page.locator('#agent-save-status')).toHaveText('자동 저장됨');
   await page.getByRole('button',{name:'닫기',exact:true}).click();
-  await expect(page.locator('#model-misc')).toHaveValue('astra');await expect(page.locator('#reasoning-misc')).toHaveValue('xhigh');
-  await page.locator('#model-misc').selectOption('luna');await page.locator('#reasoning-misc').selectOption('none');
-  await page.locator('#model-misc').selectOption('astra');await expect(page.locator('#reasoning-misc')).toHaveValue('medium');
-  await expect(page.locator('#reasoning-misc option[value="none"]')).toHaveCount(0);
+  await expect(page.locator('#model-format')).toHaveValue('astra');await expect(page.locator('#reasoning-format')).toHaveValue('xhigh');
+  await page.locator('#model-format').selectOption('luna');await page.locator('#reasoning-format').selectOption('none');
+  await page.locator('#model-format').selectOption('astra');await expect(page.locator('#reasoning-format')).toHaveValue('medium');
+  await expect(page.locator('#reasoning-format option[value="none"]')).toHaveCount(0);
 });
 
 test('Codex subscription screen exposes workspace, live commands and login without API credentials',async({page,request})=>{
@@ -351,7 +358,7 @@ test('office audio plays typing only during work and louder report chimes, with 
   snapshot.letters.push({id:'audio-test-report',senderId:'chief',subject:'소리 확인',body:'완료',createdAt:Date.now(),read:false});
   await page.evaluate(snapshot=>window.officeEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
   expect(await page.evaluate(()=>window.audioEvents.notes)).toBe(3);
-  expect(await page.evaluate(()=>window.audioEvents.peak)).toBe(.18);
+  expect(await page.evaluate(()=>window.audioEvents.peak)).toBe(.45);
   const completed=await page.evaluate(()=>window.audioEvents.taps);
   await page.waitForTimeout(1100);expect(await page.evaluate(()=>window.audioEvents.taps)).toBe(completed);
   await page.locator('[data-action="sound"]').click();
@@ -371,7 +378,7 @@ test('development team shows the junior beside its lead with independent Luna se
   await expect(page.locator('[data-row="junior"] .agent-model-name')).toHaveText('Luna');
   await page.locator('#office-svg [data-agent="junior"]').click();
   await expect(page.locator('#modal h2')).toHaveText('따까리');
-  await expect(page.locator('#agent-profile')).toHaveValue('luna');
+  await expect(page.locator('#model-junior')).toHaveValue('luna');
   await expect(page.locator('#agent-prompt')).toHaveValue(/개발 팀장 개발노예의 후배/);
   await page.locator('#modal').getByRole('button',{name:'작업 배정',exact:true}).click();
   await expect(page.locator('#task-form [name="agentId"]')).toHaveValue('junior');
@@ -429,16 +436,15 @@ test('nameplates stay in front with equal size and secretary model controls pers
     expect(onTop).toBe(id);
   }
   await page.locator('[data-nameplate="secretary"]').click();
-  await expect(page.locator('#secretary-profile')).toHaveValue('luna');
-  await page.locator('#secretary-profile').selectOption('sol');
-  await page.locator('#secretary-reasoning').selectOption('high');
-  await expect(page.locator('#secretary-save-status')).toHaveText('자동 저장됨');
+  await expect(page.locator('#model-secretary')).toHaveValue('luna');
+  await expect(page.locator('#secretary-reasoning')).toBeDisabled();
+  await expect(page.locator('#secretary-reasoning')).toHaveValue('medium');
   await expect(page.locator('.secretary-model-settings')).toContainText('호문클루스가 배정하거나 제어할 수 없어요');
   await page.locator('#modal [data-action="close-modal"]').click();
   await page.reload();
   await page.locator('[data-nameplate="secretary"]').click();
-  await expect(page.locator('#secretary-profile')).toHaveValue('sol');
-  await expect(page.locator('#secretary-reasoning')).toHaveValue('high');
+  await expect(page.locator('#model-secretary')).toHaveValue('luna');
+  await expect(page.locator('#secretary-reasoning')).toHaveValue('medium');
   await page.locator('#modal [data-action="close-modal"]').click();
   await page.screenshot({path:'test-results/office-nameplates.png',fullPage:true});
 });
@@ -473,16 +479,17 @@ test('computer switching opens separate offices with independent agents, mailbox
   let patch;
   await page.route('**/api/agents/writer',async route=>{patch=route.request().postDataJSON();const agent=snapshot.offices[patch.officeId].agents.find(a=>a.id==='writer');Object.assign(agent,patch);await route.fulfill({json:{agent}});});
   await page.locator('#office-svg [data-agent="writer"]').click();
-  await page.locator('#agent-profile').selectOption('sol');
+  await page.locator('#agent-prompt').fill('원격 담당자 설정 변경');
   await expect(page.locator('#agent-save-status')).toHaveText('자동 저장됨');expect(patch.officeId).toBe('office-peer');
   await page.locator('#modal [data-action="close-modal"]').click();
   if(!await page.locator('.computer-picker').isVisible())await page.locator('[data-action="computer"]').click();
   await page.locator('.computer-picker [data-action="select-computer"][data-id="local"]').click();
   await expect(page.locator('[data-row="dev"]')).toContainText('내 컴퓨터 개발 작업');
-  expect(snapshot.offices.local.agents.find(a=>a.id==='writer').profile).not.toBe('sol');
+  expect(snapshot.offices.local.agents.find(a=>a.id==='writer').prompt).not.toBe('원격 담당자 설정 변경');
   if(!await page.locator('.computer-picker').isVisible())await page.locator('[data-action="computer"]').click();
   await page.locator('.computer-picker [data-action="select-computer"][data-id="office-peer"]').click();
-  await expect(page.locator('[data-row="writer"] .agent-model-name')).toHaveText('Sol');
+  await expect(page.locator('[data-row="writer"] .agent-model-name')).toHaveText('Luna');
+  expect(snapshot.offices['office-peer'].agents.find(a=>a.id==='writer').prompt).toBe('원격 담당자 설정 변경');
   let query;
   await page.route('**/api/secretary',async route=>{query=route.request().postDataJSON();await route.fulfill({json:{answer:'이 사무실의 원격 개발 작업은 진행 중입니다.'}});});
   await page.locator('#office-svg [data-agent="secretary"]').click();
@@ -619,4 +626,122 @@ test('every agent can be renamed from its settings and names survive reload',asy
     await expect(page.locator('.modal-agent-heading h2')).toHaveText('<b>연구원</b>');
     await expect(page.locator('.modal-agent-heading h2 b')).toHaveCount(0);
   } finally {for(const agent of original)await request.patch(`/api/agents/${agent.id}`,{data:{name:agent.name}});}
+});
+
+
+test('department Fast buttons toggle independently and persist', async ({page}) => {
+  await page.goto('/');
+  const buttons=page.locator('.department-speed');
+  await expect(buttons).toHaveCount(4);
+  const dev=page.getByRole('button',{name:'개발부서 Fast 모드',exact:true});
+  await expect(dev).toHaveText('Normal');
+  await dev.click();
+  await expect(dev).toHaveText('Fast');
+  await expect(dev).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('button',{name:'논문부서 Fast 모드',exact:true})).toHaveText('Normal');
+  await page.reload();
+  await expect(dev).toHaveText('Fast');
+  await dev.click();
+  await expect(dev).toHaveText('Normal');
+  await page.reload();
+  await expect(dev).toHaveText('Normal');
+});
+
+
+test('Fast changes each department scene and Normal restores it', async ({page}) => {
+  await page.goto('/');
+  for(const department of ['사장실','개발부서','논문부서','잡다부서']) {
+    const button=page.getByRole('button',{name:department+' Fast 모드',exact:true});
+    const scene=page.locator(`[data-department-scene="${department}"][data-scene-mode="fast"]`);
+    for(const item of await scene.all()) await expect(item).toBeHidden();
+    await button.click();
+    await expect(button).toHaveText('Fast');
+    for(const item of await scene.all()) await expect(item).toBeVisible();
+  }
+  for(const flame of await page.locator('[data-fast-flame]').all()) await expect(flame).toBeVisible();
+  await expect(page.locator('[data-department-sign]')).toHaveAttribute('transform','rotate(5 780 366)');
+  await page.screenshot({path:'test-results/office-fast-scenes.png',fullPage:true});
+  for(const department of ['사장실','개발부서','논문부서','잡다부서']) {
+    await page.getByRole('button',{name:department+' Fast 모드',exact:true}).click();
+    for(const item of await page.locator(`[data-department-scene="${department}"][data-scene-mode="fast"]`).all()) await expect(item).toBeHidden();
+  }
+  for(const flame of await page.locator('[data-fast-flame]').all()) await expect(flame).toBeHidden();
+  await expect(page.locator('[data-department-sign]')).toHaveAttribute('transform','rotate(0 780 366)');
+});
+
+
+test('pencil edits character and name, persists, and keeps pencil after autosave',async({page})=>{
+  await page.goto('/');
+  await page.locator('#office-svg [data-agent="dev"]').click();
+  await page.getByRole('button',{name:'이름과 캐릭터 수정',exact:true}).click();
+  await expect(page.locator('.character-choice')).toHaveCount(26);
+  await page.screenshot({path:'test-results/character-picker-26.png',fullPage:true});
+  await page.locator('#character-name').fill('냥개발');
+  await page.locator('.character-choice').filter({has:page.locator('input[value="cat"]')}).click();
+  await page.getByRole('button',{name:'저장하기',exact:true}).click();
+  await expect(page.locator('[data-agent-heading-name]')).toHaveText('냥개발');
+  await expect(page.locator('#office-svg [data-agent="dev"] .character-bob')).toHaveAttribute('data-appearance','cat');
+  await page.locator('#agent-name').fill('냥개발2');
+  await expect(page.locator('#agent-save-status')).toHaveText('자동 저장됨');
+  await expect(page.getByRole('button',{name:'이름과 캐릭터 수정',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.reload();
+  await expect(page.locator('[data-nameplate="dev"] text')).toHaveText('냥개발2');
+  await expect(page.locator('#office-svg [data-agent="dev"] .character-bob')).toHaveAttribute('data-appearance','cat');
+  await page.locator('#office-svg [data-agent="secretary"]').click();
+  await page.getByRole('button',{name:'이름과 캐릭터 수정',exact:true}).click();
+  await page.locator('.character-choice').filter({has:page.locator('input[value="robot"]')}).click();
+  await page.getByRole('button',{name:'저장하기',exact:true}).click();
+  await expect(page.locator('#office-svg [data-agent="secretary"] .character-bob')).toHaveAttribute('data-appearance','robot');
+});
+
+
+test('agent presets apply tiers, save custom settings and keep fixed workers locked',async({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:'에이전트 모델 추론 프리셋',exact:true}).click();
+  const modal=page.locator('#modal');
+  for(const [name,chiefModel,chiefEffort] of [['상급','astra','high'],['중급','sol','xhigh'],['하급','terra','high']]) {
+    await modal.locator('.preset-card').filter({has:page.getByRole('heading',{name,exact:true})}).getByRole('button',{name:'적용하기'}).click();
+    await expect(page.locator('#model-chief')).toHaveValue(chiefModel);
+    await expect(page.locator('#reasoning-chief')).toHaveValue(chiefEffort);
+  }
+  await page.locator('#agent-preset-name').fill('내 설정');
+  await modal.getByRole('button',{name:'저장하기',exact:true}).click();
+  await expect(modal.locator('.custom-preset-grid')).toContainText('내 설정');
+  await modal.locator('.preset-card').filter({has:page.getByRole('heading',{name:'상급',exact:true})}).getByRole('button',{name:'적용하기'}).click();
+  await modal.locator('.custom-preset-grid').getByRole('button',{name:'적용하기'}).click();
+  await expect(page.locator('#model-chief')).toHaveValue('terra');
+  await modal.getByRole('button',{name:'닫기',exact:true}).click();
+  for(const id of ['junior','misc','secretary']) {
+    await page.locator(`[data-select-agent="${id}"]`).click();
+    await expect(page.locator(`#model-${id}`)).toHaveValue('luna');
+    await expect(page.locator(`#model-${id}`)).toBeDisabled();
+    await expect(page.locator(`#reasoning-${id}`)).toHaveValue('medium');
+    await expect(page.locator(`#reasoning-${id}`)).toBeDisabled();
+  }
+  await page.reload();
+  await page.getByRole('button',{name:'에이전트 모델 추론 프리셋',exact:true}).click();
+  await expect(modal.locator('.custom-preset-grid')).toContainText('내 설정');
+});
+
+
+test('history trash previews all and date deletion and requires confirmation',async({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:'일 시키기',exact:true}).click();await page.locator('#task-description').fill('삭제 확인 작업');
+  const created=page.waitForResponse(response=>response.url().endsWith('/api/tasks')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'시작하기',exact:true}).click();
+  const {id}=await(await created).json();
+  await expect.poll(async()=>{const snapshot=await(await page.request.get('/api/state')).json();return snapshot.tasks.find(task=>task.id===id)?.status;},{timeout:15000}).toBe('done');
+  await page.getByRole('button',{name:'작업 현황',exact:true}).click();await expect(page.locator('#task-board')).toContainText('삭제 확인 작업');
+  await page.getByRole('button',{name:'작업 현황 삭제',exact:true}).click();
+  await page.getByRole('button',{name:'전체 삭제',exact:true}).click();await expect(page.locator('#cleanup-preview')).toContainText(/작업 [1-9]\d*개/);
+  await page.getByRole('button',{name:'닫기',exact:true}).click();await expect(page.locator('#task-board')).toContainText('삭제 확인 작업');
+  await page.locator('.rail [data-view="inbox"]').click();await page.getByRole('button',{name:'편지함 삭제',exact:true}).click();
+  await page.locator('#cleanup-date').fill('2000-01-01');await page.getByRole('button',{name:'선택한 날짜 이전 삭제',exact:true}).click();
+  await expect(page.getByRole('button',{name:'확인 후 삭제',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'전체 삭제',exact:true}).click();await expect(page.locator('#cleanup-preview')).toContainText(/편지 [1-9]\d*개/);
+  await page.getByRole('button',{name:'확인 후 삭제',exact:true}).click();await expect(page.locator('#inbox-list .letter-card')).toHaveCount(0);
+  await page.getByRole('button',{name:'작업 현황',exact:true}).click();await expect(page.locator('#task-board')).toContainText('삭제 확인 작업');
+  await page.getByRole('button',{name:'작업 현황 삭제',exact:true}).click();await page.getByRole('button',{name:'전체 삭제',exact:true}).click();await page.getByRole('button',{name:'확인 후 삭제',exact:true}).click();await expect(page.locator('#task-board')).not.toContainText('삭제 확인 작업');
+  await page.getByRole('button',{name:'활동 기록',exact:true}).click();await page.getByRole('button',{name:'활동 기록 삭제',exact:true}).click();await page.getByRole('button',{name:'전체 삭제',exact:true}).click();await page.getByRole('button',{name:'확인 후 삭제',exact:true}).click();await expect(page.locator('#activity-list .log-row')).toHaveCount(0);
 });

@@ -120,7 +120,7 @@ test('every worker gets full access, and home or disk root can be starting direc
     assert.equal((await request('settings','PATCH',{workingDirectory:directory})).status,200);
   }
   await request('settings','PATCH',{workingDirectory:old});
-  await request('agents/misc','PATCH',{profile:'astra',reasoningEffort:'low'});
+  assert.equal((await request('agents/misc','PATCH',{profile:'astra',reasoningEffort:'low'})).status,400);
   for(const agentId of ['dev','writer','format','misc']){
     const created=await request('tasks','POST',{description:'전체 접근 권한 실행 확인',agentId,workingDirectory:workspace});
     const {task}=await poll(created.data.id);
@@ -130,7 +130,7 @@ test('every worker gets full access, and home or disk root can be starting direc
   for(const call of calls){assert.equal(call.args[call.args.indexOf('--sandbox')+1],'danger-full-access');assert.ok(call.args.includes('approval_policy="never"'));assert.ok(call.prompt.includes('시작 폴더 밖의 요청 경로에도'));
     assert.ok(!call.args.includes('read-only'));assert.ok(!call.args.includes('workspace-write'));
   }
-  assert.ok(calls[3].args.includes('gpt-6-astra'));
+  assert.ok(calls[3].args.includes('gpt-5.6-luna'));assert.ok(calls[3].args.includes('model_reasoning_effort="medium"'));
 });
 
 test('project overlap serializes file work while independent folders run in parallel', async () => {
@@ -292,17 +292,17 @@ test('computer offices reserve agents separately and isolate history, controls a
   assert.equal(done.status,'done');assert.equal(done.codexRuns[0].model,'gpt-5.6-luna');
 });
 
-test('owner secretary uses its selected model and effort without chief control or file permissions',async()=>{
+test('owner secretary uses fixed Luna Medium without chief control or file permissions',async()=>{
   const before=(await request('state')).data.agents.find(a=>a.id==='secretary');
   assert.equal(before.ownerOnly,true);assert.equal(before.reportsTo,null);
-  assert.equal((await request('agents/secretary','PATCH',{profile:'sol',reasoningEffort:'high'})).status,200);
+  assert.equal((await request('agents/secretary','PATCH',{profile:'sol',reasoningEffort:'high'})).status,400);
   const captures=async()=> (await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
   const offset=(await captures()).length;
   const response=await request('secretary','POST',{question:'호문클루스 진행 상황 어때?'});
   assert.equal(response.status,200);assert.match(response.data.answer,/비둘기/);
-  assert.equal(response.data.model,'gpt-5.6-sol');assert.equal(response.data.reasoningEffort,'high');
+  assert.equal(response.data.model,'gpt-5.6-luna');assert.equal(response.data.reasoningEffort,'medium');
   const call=(await captures())[offset];
-  assert.equal(call.args[call.args.indexOf('--sandbox')+1],'read-only');assert.ok(call.args.includes('gpt-5.6-sol'));assert.ok(call.args.includes('model_reasoning_effort="high"'));
+  assert.equal(call.args[call.args.indexOf('--sandbox')+1],'read-only');assert.ok(call.args.includes('gpt-5.6-luna'));assert.ok(call.args.includes('model_reasoning_effort="medium"'));
   assert.match(call.prompt,/다른 에이전트를 배정·중지·제어/);assert.ok(!call.envKeys.includes('PX_REMOTE_TOKEN'));
   assert.equal((await request('tasks','POST',{description:'비둘기 작업',agentId:'secretary'})).status,400);
   await request('agents/secretary','PATCH',{profile:before.profile,reasoningEffort:before.reasoningEffort});
@@ -358,4 +358,23 @@ test('office deletion stops only its work, stays deleted across discovery/restar
   assert.equal(state.offices['remote-one'].agents.find(agent=>agent.id==='chief').profile,state.agents.find(agent=>agent.id==='chief').profile);
   assert.ok(!state.tasks.some(task=>task.machineId==='remote-one'));
   assert.equal((await request('computers')).data.computers.find(item=>item.id==='remote-one').hasSudoPassword,true);
+});
+
+
+test('department speed applies to every member and Codex toggles back to Normal', async () => {
+  assert.equal((await request('departments/'+encodeURIComponent('개발부서')+'/speed','PATCH',{fastMode:'yes'})).status,400);
+  for (const fastMode of [true, false]) {
+    assert.equal((await request('departments/'+encodeURIComponent('개발부서')+'/speed','PATCH',{fastMode})).status,200);
+    const state=(await request('state')).data;
+    assert.ok(state.agents.filter(a=>a.department==='개발부서').every(a=>a.fastMode===fastMode));
+    assert.notEqual(state.agents.find(a=>a.id==='writer').fastMode,true);
+    const created=await request('tasks','POST',{description:'speed verification',agentId:'dev',workingDirectory:workspace});
+    assert.equal(created.status,201);
+    const {task}=await poll(created.data.id);
+    assert.equal(task.codexRuns[0].fastMode,fastMode);
+    const calls=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
+    const call=calls.at(-1);
+    assert.ok(call.args.includes(`features.fast_mode=${fastMode}`));
+    assert.ok(call.args.includes(`service_tier="${fastMode?'fast':'default'}"`));
+  }
 });

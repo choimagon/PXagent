@@ -104,4 +104,4 @@ jobs:
           cp install.sh release-assets/install.sh
           cd release-assets
           sha256sum * > SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "PXagents $GITHUB_REF_NAME" --notes "Windows: run the EXE and enter i to install or c to uninstall. macOS / Linux: run install.sh (i / c). 한국어 안내: https://github.com/choimagon/PXagent#readme · English: https://github.com/choimagon/PXagent/blob/main/README.en.md. Unsigned builds may show OS security prompts." ./*
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "PXagents $GITHUB_REF_NAME" --latest --notes-file "$GITHUB_WORKSPACE/RELEASE_NOTES.md" ./*

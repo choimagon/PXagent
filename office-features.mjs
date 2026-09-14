@@ -4,7 +4,7 @@ export function ensureOfficeFeatures(state) {
   state.goals ||= [];
   state.letters ||= [];
   for (const task of state.tasks) {
-    if (['done', 'failed', 'stopped'].includes(task.status) && (task.result || task.error) && !state.letters.some(letter => letter.taskId === task.id)) postTaskReport(state, task, state.goals.find(goal => goal.id === task.goalId));
+    if (!task.reportDeleted && ['done', 'failed', 'stopped'].includes(task.status) && (task.result || task.error) && !state.letters.some(letter => letter.taskId === task.id)) postTaskReport(state, task, state.goals.find(goal => goal.id === task.goalId));
   }
   state.schemaVersion = 5;
 }
@@ -14,6 +14,7 @@ export function postTaskReport(state, task, goal = null) {
   const subject = goal ? `${outcome === 'done' ? 'Goal 달성' : outcome === 'blocked' ? 'Goal 진행 중단' : outcome === 'stopped' ? 'Goal 중지' : `Goal ${task.goalRound}차 진행 보고`} · ${goal.title}` : `${task.status === 'done' ? '작업 완료' : task.status === 'failed' ? '작업 오류' : '작업 중지'} · ${task.title}`;
   const content = task.result || `${task.error || '작업을 중지했습니다.'}${task.workerResult ? '\n\n담당 에이전트의 결과:\n' + task.workerResult : ''}`;
   const letter = { machineId:task.machineId||null, id: randomUUID(), taskId: task.id, goalId: goal?.id || task.goalId || null, senderId: goal ? 'chief' : task.agentId, subject, body: content, tailWebUrl:task.tailWebUrl||null, tailWebError:task.tailWebError||null, status: task.status, goalOutcome: outcome || null, runMode: task.runMode, modelUsed: task.modelUsed || null, reasoningUsed: task.reasoningUsed || null, workingDirectory: task.remoteDirectory || task.workingDirectory, computerName: task.computerName || null, createdAt: task.finishedAt || Date.now(), readAt: null };
+  task.reportDeleted=false;
   state.letters.push(letter);
   return letter;
 }
