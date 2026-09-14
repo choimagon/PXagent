@@ -308,7 +308,7 @@ function shell() {
     <div class="layout">
       <aside class="rail" id="navigation-sidebar">
         <a class="brand" href="/" aria-label="PX Office 사무실"><span class="brand-symbol">${icon('office',24)}</span><span>PX<span class="brand-light"> OFFICE</span><small>PERSONAL AGENT WORKSPACE</small></span></a>
-        <div class="workspace-tag"><i class="tiny-square"></i><b id="office-label">${esc(state.office.name)} 사무실</b> <span>v2.0</span></div>
+        <div class="workspace-tag"><i class="tiny-square"></i><b id="office-label">${esc(state.office.name)} 사무실</b> <span>v2.1</span></div>
         <div class="rail-label">WORKSPACE</div>
         <nav aria-label="주 메뉴">${navItem('office','사무실','office')}${navItem('inbox','편지함','mail')}${navItem('tasks','작업 현황','tasks')}${navItem('logs','활동 기록','logs')}</nav>
         <div class="rail-bottom"><button class="account-usage" data-action="usage-details" aria-label="구독 사용량과 초기화권 보기" title="구독 사용량과 초기화권"><span class="usage-heading">${icon('tasks',20)}<b>구독 사용량</b></span><span id="account-usage-content"></span></button><div class="owner"><span class="owner-avatar">B</span><div><b>사장님</b><span>이 사무실의 유일한 인간</span></div><span class="owner-crown">♛</span></div></div>

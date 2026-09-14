@@ -1,14 +1,14 @@
 <p align="center"><img src="public/assets/favicon.svg" width="88" alt="PXagents logo"></p>
-<h1 align="center">PXagents 2.0</h1>
+<h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>A pixel multi-agent office powered by your ChatGPT subscription</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.0.0-91b77a?style=flat-square" alt="Version 2.0.0"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.0-91b77a?style=flat-square" alt="Version 2.1.0"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
 <p align="center"><a href="README.md">한국어</a> · <b>English</b> · <a href="https://github.com/choimagon/PXagent/releases/latest">Download installers</a> · <a href="#installation">Install</a> · <a href="#uninstallation">Uninstall</a> · <a href="#features">Features</a></p>
 
-![PXagents 2.0 pixel office — demo mode](demo_img.png)
+![PXagents 2.1 pixel office — demo mode](demo_img.png)
 
 **PXagents turns Codex into a multi-agent desktop workflow using your OpenAI ChatGPT subscription.** A lead agent assigns requests to development, writing, and editing specialists, each with its own model and instructions. Sign in with your own ChatGPT account to use subscription-based Codex without entering an API key.
 
@@ -92,9 +92,9 @@ The app is installed to `~/.local/opt/pxagents` and registered in your applicati
 
 ```sh
 # Run in the directory containing your downloaded package
-sudo apt install ./PXagents-2.0.0-linux-x64.deb
+sudo apt install ./PXagents-2.1.0-linux-x64.deb
 # On ARM64, use this instead:
-# sudo apt install ./PXagents-2.0.0-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.0-linux-arm64.deb
 ```
 
 AppImage users may also need a FUSE 2 runtime. [All Linux downloads](https://github.com/choimagon/PXagent/releases/latest)

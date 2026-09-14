@@ -1,14 +1,14 @@
 <p align="center"><img src="public/assets/favicon.svg" width="88" alt="PXagents 로고"></p>
-<h1 align="center">PXagents 2.0</h1>
+<h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>내 ChatGPT 구독으로 운영하는 픽셀 멀티에이전트 사무실</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.0.0-91b77a?style=flat-square" alt="버전 2.0.0"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.0-91b77a?style=flat-square" alt="버전 2.1.0"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
 <p align="center"><b>한국어</b> · <a href="README.en.md">English</a> · <a href="https://github.com/choimagon/PXagent/releases/latest">설치파일 다운로드</a> · <a href="#설치">설치</a> · <a href="#삭제">삭제</a> · <a href="#기능">기능</a></p>
 
-![PXagents 2.0 픽셀 사무실 — 데모 모드](demo_img.png)
+![PXagents 2.1 픽셀 사무실 — 데모 모드](demo_img.png)
 
 **PXagents는 OpenAI의 ChatGPT 구독을 이용해 Codex를 멀티에이전트로 구성한 데스크톱 앱입니다.** 하나의 요청을 총괄·개발·글쓰기·편집 담당으로 나누고, 각 담당자가 자기 모델과 지침으로 작업하도록 연결합니다. 본인 ChatGPT 계정으로 로그인하면 구독 기반 Codex를 사용하며, 별도의 API 키 입력 없이 시작할 수 있습니다.
 
@@ -97,9 +97,9 @@ sh /tmp/pxagents-install.sh i
 
 ```sh
 # 다운로드한 파일이 있는 폴더에서 실행
-sudo apt install ./PXagents-2.0.0-linux-x64.deb
+sudo apt install ./PXagents-2.1.0-linux-x64.deb
 # ARM64 시스템은 대신 다음 파일 사용
-# sudo apt install ./PXagents-2.0.0-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.0-linux-arm64.deb
 ```
 
 AppImage를 선택한 경우 FUSE 2 런타임이 추가로 필요할 수 있습니다. [모든 Linux 설치파일](https://github.com/choimagon/PXagent/releases/latest)

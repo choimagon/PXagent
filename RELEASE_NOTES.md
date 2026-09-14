@@ -1,4 +1,4 @@
-# PXagents 2.0
+# PXagents 2.1
 
 ChatGPT 구독 기반 Codex를 역할별 에이전트로 구성한 픽셀 사무실입니다.
 
