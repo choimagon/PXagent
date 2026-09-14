@@ -32,7 +32,7 @@ if(args[0]==='app-server'){
   const {createInterface}=await import('node:readline');
   for await(const line of createInterface({input:process.stdin})){
     const request=JSON.parse(line);if(!request.id)continue;
-    const result=request.method==='initialize'?{}:request.method==='account/read'?{account:{type:'chatgpt',email:'usage@example.test',planType:'pro'}}:{rateLimits:{limitId:'codex',primary:{usedPercent:23,windowDurationMins:300,resetsAt:1789300000},secondary:null},rateLimitResetCredits:{availableCount:4,credits:[]}};
+    const result=request.method==='initialize'?{}:request.method==='account/read'?{account:{type:'chatgpt',email:'usage@example.test',planType:'pro'}}:{rateLimits:{limitId:'codex',primary:{usedPercent:23,windowDurationMins:300,resetsAt:1789300000},secondary:null},rateLimitResetCredits:{availableCount:4,credits:[{status:"available",expiresAt:1893456000},{status:"available",expiresAt:null},{status:"redeemed",expiresAt:1893456000}]}};
     console.log(JSON.stringify({id:request.id,result}));
   }
   process.exit(0);
@@ -221,6 +221,7 @@ test('subscription usage reads account quota and authoritative reset count', asy
   assert.equal(response.data.windows[0].usedPercent, 23);
   assert.equal(response.data.windows[0].windowDurationMins, 300);
   assert.equal(response.data.resetsAvailable, 4);
+  assert.deepEqual(response.data.resetCredits,[{expiresAt:1893456000},{expiresAt:null}]);
   assert.equal(JSON.stringify(response.data).includes('access_token'), false);
 });
 

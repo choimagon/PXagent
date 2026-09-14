@@ -2,7 +2,7 @@
 <h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>A pixel multi-agent office powered by your ChatGPT subscription</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.1-91b77a?style=flat-square" alt="Version 2.1.1"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.2-91b77a?style=flat-square" alt="Version 2.1.2"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
@@ -92,9 +92,9 @@ The app is installed to `~/.local/opt/pxagents` and registered in your applicati
 
 ```sh
 # Run in the directory containing your downloaded package
-sudo apt install ./PXagents-2.1.1-linux-x64.deb
+sudo apt install ./PXagents-2.1.2-linux-x64.deb
 # On ARM64, use this instead:
-# sudo apt install ./PXagents-2.1.1-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.2-linux-arm64.deb
 ```
 
 AppImage users may also need a FUSE 2 runtime. [All Linux downloads](https://github.com/choimagon/PXagent/releases/latest)
@@ -136,6 +136,8 @@ sudo apt remove px-agents-office
 ```
 
 Uninstallation removes the app and its shortcuts, while **retaining saved work, mail, settings, and account data**. To clear records inside the app, use **🗑️ 비우기** (Empty) on each history screen.
+
+The sidebar subscription panel shows the total number of reset credits and counts grouped by expiration date. Click it for the full schedule. Non-expiring credits and missing expiration details are shown separately; usage refreshes every minute.
 
 ## First launch
 

@@ -2,6 +2,14 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { codexEnvironment } from './codex-runner.mjs';
 
+export function resetCreditDetails(summary) {
+  const count=summary?.availableCount;
+  const credits=Array.isArray(summary?.credits)?summary.credits.filter(credit=>credit?.status==='available').map(credit=>({
+    expiresAt:credit.expiresAt===null?null:Number.isInteger(credit.expiresAt)&&credit.expiresAt>0?credit.expiresAt:undefined,
+  })):null;
+  return {resetsAvailable:Number.isInteger(count)&&count>=0?count:null,resetCredits:credits};
+}
+
 // Read-only RPCs: Codex manages authentication; no tokens leave the child process.
 export async function readCodexUsage(binary, { timeoutMs = 15000 } = {}) {
   if (!binary) throw new Error('Codex가 설치되어 있지 않습니다.');
@@ -45,8 +53,7 @@ export async function readCodexUsage(binary, { timeoutMs = 15000 } = {}) {
       if (!window || !Number.isFinite(window.usedPercent)) return [];
       return [{ bucket: bucket.limitId || 'codex', name: bucket.limitName || '', usedPercent: window.usedPercent, windowDurationMins: window.windowDurationMins, resetsAt: window.resetsAt }];
     }));
-    const count = limits.rateLimitResetCredits?.availableCount;
-    return { available: true, email: account.email || '', planType: account.planType || '', windows, resetsAvailable: Number.isInteger(count) && count >= 0 ? count : null, checkedAt: Date.now() };
+    return { available: true, email: account.email || '', planType: account.planType || '', windows, ...resetCreditDetails(limits.rateLimitResetCredits), checkedAt: Date.now() };
   } finally {
     clearTimeout(timer); lines.close(); child.stdin.end(); child.kill();
   }

@@ -792,3 +792,15 @@ test('sidebar updater offers desktop downloads, progress and restart while prese
 test('web sidebar updater explains that installation is required and links the official download',async({page})=>{
  await page.goto('/');await page.getByRole('button',{name:'앱 업데이트',exact:true}).click();await expect(page.locator('#modal')).toContainText('설치된 데스크톱 앱');await expect(page.getByRole('link',{name:'설치파일 다운로드',exact:true})).toHaveAttribute('href','https://github.com/choimagon/PXagent/releases/latest');
 });
+
+test('subscription reset credits show grouped expirations, unlisted credits and unknown dates',async({page})=>{
+ let usage={available:true,email:'demo@example.test',planType:'pro',windows:[],resetsAvailable:6,resetCredits:[{expiresAt:1893456000},{expiresAt:1893456000},{expiresAt:1893542400},{expiresAt:null}],checkedAt:Date.now()};
+ await page.route('**/api/codex/usage',route=>route.fulfill({json:usage}));
+ await page.goto('/');const sidebar=page.locator('#account-usage-content');
+ await expect(sidebar).toContainText('6개');await expect(sidebar).toContainText('만료 없음');await expect(sidebar).toContainText('나머지 2개');
+ const date=await page.evaluate(()=>new Date(1893456000*1000).toLocaleString('ko-KR'));
+ await expect(sidebar.locator('.usage-expiries>div').filter({hasText:date})).toContainText('2개');
+ await page.locator('[data-action="usage-details"]').click();await expect(page.locator('#usage-details-content')).toContainText(date+'까지');
+ usage={...usage,resetCredits:null};await page.locator('[data-action="refresh-usage"]').click();await expect(page.locator('#usage-details-content')).toContainText('만료일 정보를 조회하지 못했어요');
+ usage={...usage,resetsAvailable:0,resetCredits:[]};await page.locator('[data-action="refresh-usage"]').click();await expect(page.locator('#usage-details-content')).toContainText('사용 가능한 초기화권이 없어요');
+});

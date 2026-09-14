@@ -29,7 +29,17 @@ let mailboxFilter = 'all', taskStatusFilter = 'all';
 let sidebarOpen = localStorage.getItem('px-sidebar-open') !== 'false';
 let leftSidebarOpen = localStorage.getItem('px-left-sidebar-open') !== 'false';
 let accountUsage=null, accountUsageRequest;
-function usageContent() {
+function resetExpiryContent(details=false) {
+  if(accountUsage.resetsAvailable===0)return '<small class="usage-expiry-notice">사용 가능한 초기화권이 없어요.</small>';
+  const credits=accountUsage.resetCredits;
+  if(!Array.isArray(credits)||!credits.length)return '<small class="usage-expiry-notice">만료일 정보를 조회하지 못했어요.</small>';
+  const groups=new Map();
+  for(const credit of credits){const key=credit.expiresAt===null?'none':Number.isFinite(credit.expiresAt)?credit.expiresAt:'unknown';groups.set(key,(groups.get(key)||0)+1);}
+  const rows=[...groups].sort((a,b)=>(typeof a[0]==='number'?a[0]:Infinity)-(typeof b[0]==='number'?b[0]:Infinity));
+  const shown=details?rows:rows.slice(0,3),unlisted=Number.isInteger(accountUsage.resetsAvailable)?Math.max(0,accountUsage.resetsAvailable-credits.length):0;
+  return `<div class="usage-expiries">${shown.map(([expiry,count])=>`<div><span>${expiry==='none'?'만료 없음':expiry==='unknown'?'만료일 조회 불가':`${new Date(expiry*1000).toLocaleString('ko-KR')}까지`}</span><b>${count}개</b></div>`).join('')}</div>${!details&&rows.length>shown.length?`<small class="usage-expiry-notice">외 ${rows.length-shown.length}개 일정 · 클릭하여 전체 보기</small>`:''}${unlisted?`<small class="usage-expiry-notice">나머지 ${unlisted}개는 만료일 정보가 제공되지 않았어요.</small>`:''}`;
+}
+function usageContent(details=false) {
   if (!accountUsage) return '<p class="usage-notice">구독 정보를 확인하고 있어요.</p>';
   if (!accountUsage.available) return `<p class="usage-notice">${esc(accountUsage.message)}</p>`;
   return `<div class="usage-account"><b>${esc(accountUsage.planType.toUpperCase())}</b><span>${esc(accountUsage.email)}</span></div>${accountUsage.windows.map(window=>{
@@ -37,13 +47,13 @@ function usageContent() {
     const period=mins>=1440?`${Math.round(mins/1440)}일`:mins>=60?`${Math.round(mins/60)}시간`:`${mins}분`;
     const used=Math.max(0,Math.min(100,window.usedPercent));
     return `<div class="usage-window"><div><span>${esc(window.name || 'Codex')} · ${period}</span><b>${used}% 사용</b></div><div class="usage-meter"><i style="width:${used}%"></i></div>${window.resetsAt?`<small>${new Date(window.resetsAt*1000).toLocaleString('ko-KR')} 갱신</small>`:''}</div>`;
-  }).join('')}<div class="usage-resets"><span>초기화권</span><b>${accountUsage.resetsAvailable===null?'조회 불가':`${accountUsage.resetsAvailable}개`}</b></div><small class="usage-updated">${time(accountUsage.checkedAt)} 확인 · 1분마다 갱신</small>`;
+  }).join('')}<div class="usage-resets"><span>초기화권</span><b>${accountUsage.resetsAvailable===null?'조회 불가':`${accountUsage.resetsAvailable}개`}</b></div>${resetExpiryContent(details)}<small class="usage-updated">${time(accountUsage.checkedAt)} 확인 · 1분마다 갱신</small>`;
 }
 function updateAccountUsage() {
   const content=document.querySelector('#account-usage-content');
   if(content) content.innerHTML=usageContent();
   const details=document.querySelector('#usage-details-content');
-  if(details) details.innerHTML=usageContent();
+  if(details) details.innerHTML=usageContent(true);
 }
 async function refreshAccountUsage() {
   if(accountUsageRequest) return accountUsageRequest;
@@ -51,7 +61,7 @@ async function refreshAccountUsage() {
   return accountUsageRequest;
 }
 function usageDetails() {
-  openModal(`<h2>구독 사용량</h2><div id="usage-details-content">${usageContent()}</div><div class="modal-footer"><button class="button subtle-button" data-action="refresh-usage">${icon('refresh',16)}새로고침</button></div>`);
+  openModal(`<h2>구독 사용량</h2><div id="usage-details-content">${usageContent(true)}</div><div class="modal-footer"><button class="button subtle-button" data-action="refresh-usage">${icon('refresh',16)}새로고침</button></div>`);
 }
 let selectedComputerId=localStorage.getItem('px-target-computer')||'local';
 let computerSelectionRevision=0;

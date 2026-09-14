@@ -2,7 +2,7 @@
 <h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>내 ChatGPT 구독으로 운영하는 픽셀 멀티에이전트 사무실</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.1-91b77a?style=flat-square" alt="버전 2.1.1"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.2-91b77a?style=flat-square" alt="버전 2.1.2"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
@@ -97,9 +97,9 @@ sh /tmp/pxagents-install.sh i
 
 ```sh
 # 다운로드한 파일이 있는 폴더에서 실행
-sudo apt install ./PXagents-2.1.1-linux-x64.deb
+sudo apt install ./PXagents-2.1.2-linux-x64.deb
 # ARM64 시스템은 대신 다음 파일 사용
-# sudo apt install ./PXagents-2.1.1-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.2-linux-arm64.deb
 ```
 
 AppImage를 선택한 경우 FUSE 2 런타임이 추가로 필요할 수 있습니다. [모든 Linux 설치파일](https://github.com/choimagon/PXagent/releases/latest)
@@ -141,6 +141,8 @@ sudo apt remove px-agents-office
 ```
 
 삭제는 앱 실행파일과 바로가기를 제거합니다. **저장된 작업·편지·설정과 계정 정보는 유지**하며, 앱 안의 기록만 정리하려면 각 화면의 **🗑️ 비우기**를 사용하세요.
+
+왼쪽 **구독 사용량**에서 초기화권 총 개수와 **만료일별 개수**를 확인합니다. 같은 만료일의 초기화권은 묶어 표시하며, 클릭하면 전체 일정을 봅니다. 만료가 없는 권한과 만료일 정보가 제공되지 않은 권한을 구분하고 1분마다 갱신합니다.
 
 ## 처음 실행
 

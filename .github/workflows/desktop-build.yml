@@ -44,7 +44,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Portable runtime and login tests
-        run: node --test tests/tail-web.test.mjs tests/desktop.test.mjs tests/updater.test.mjs
+        run: node --test tests/tail-web.test.mjs tests/desktop.test.mjs tests/updater.test.mjs tests/usage.test.mjs
       - name: Existing backend tests
         if: matrix.platform != 'win32'
         run: npm test
