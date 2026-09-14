@@ -1,11 +1,31 @@
-import { spawn, execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root=path.dirname(fileURLToPath(import.meta.url));
-const exec = promisify(execFile);
+function readTailscaleStatus(binary) {
+  return new Promise((resolve,reject)=>{
+    // macOS Tailscale can abort when stdin is a pipe, even without input.
+    const child=spawn(binary,['status','--json'],{stdio:['ignore','pipe','pipe'],timeout:8000,killSignal:'SIGKILL',windowsHide:true});
+    const chunks=[];
+    let bytes=0,outputError;
+    const collect=(chunk,isError)=>{
+      if(outputError)return;
+      bytes+=chunk.length;
+      if(bytes>2*1024*1024){outputError=new Error('Tailscale output limit exceeded');child.kill('SIGKILL');return;}
+      if(!isError)chunks.push(chunk);
+    };
+    child.stdout.on('data',chunk=>collect(chunk,false));
+    child.stderr.on('data',chunk=>collect(chunk,true));
+    child.once('error',reject);
+    child.once('close',(code,signal)=>{
+      if(outputError)reject(outputError);
+      else if(code!==0||signal)reject(new Error('Tailscale status failed'));
+      else resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+  });
+}
 export async function findTailscale() {
   const programFiles=process.env.ProgramFiles||'C:\\Program Files';
   const candidates=process.env.TAILSCALE_BIN?[process.env.TAILSCALE_BIN]:[...(process.env.PATH||'').split(path.delimiter).filter(Boolean).map(dir=>path.join(dir,process.platform==='win32'?'tailscale.exe':'tailscale')),'/Applications/Tailscale.app/Contents/MacOS/Tailscale',path.join(programFiles,'Tailscale','tailscale.exe'),'/usr/bin/tailscale','/usr/local/bin/tailscale'];
@@ -23,7 +43,7 @@ export function parseComputers(status) {
 export async function discoverComputers(binary) {
   if(!binary) return {available:false,computers:[],message:'Tailscale가 설치되어 있지 않습니다.'};
   try {
-    const {stdout}=await exec(binary,['status','--json'],{timeout:8000,maxBuffer:2*1024*1024,windowsHide:true});
+    const stdout=await readTailscaleStatus(binary);
     const status=JSON.parse(stdout);
     return {available:status.BackendState==='Running',computers:parseComputers(status),message:status.BackendState==='Running'?'':'Tailscale 연결을 확인해주세요.'};
   } catch { return {available:false,computers:[],message:'Tailscale 컴퓨터 목록을 조회하지 못했습니다.'}; }
