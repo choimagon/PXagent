@@ -8,3 +8,4 @@ export const AGENT_PRESETS = {
 export function agentPresetValues(agents) {
   return Object.fromEntries(agents.map(agent=>[agent.id,FIXED_AGENT_IDS.includes(agent.id)?entry('luna','medium'):entry(agent.profile,agent.reasoningEffort)]));
 }
+for(const [id,preset] of Object.entries(AGENT_PRESETS))Object.assign(preset.agents,{analyzer:entry(id==='lower'?'luna':'terra',id==='lower'?'xhigh':'high'),autoresearch:entry(id==='upper'?'sol':id==='middle'?'terra':'luna',id==='lower'?'xhigh':'high')});

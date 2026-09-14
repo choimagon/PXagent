@@ -23,7 +23,7 @@ test('official ChatGPT login is completed through Codex without returning tokens
 test('desktop distribution contains explicit OS targets and excludes user data',async()=>{
   const config=(await import('../electron-builder.config.cjs')).default;
   assert.deepEqual(config.win.target,['nsis']);assert.deepEqual(config.mac.target,['dmg','zip']);assert.deepEqual(config.linux.target,['AppImage','deb']);
-  assert.ok(config.files.includes('!data/**'));assert.ok(config.files.includes('!.env'));assert.ok(config.files.includes('!node_modules/**'));
+  for(const folder of ['agents/**','harness/**','skills/**','tools/**'])assert.ok(config.files.includes(folder));assert.ok(config.files.includes('!data/**'));assert.ok(config.files.includes('!.env'));assert.ok(config.files.includes('!node_modules/**'));
   const pkg=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));assert.equal(pkg.main,'desktop/main.cjs');assert.ok(pkg.devDependencies['@openai/codex']);
 });
 

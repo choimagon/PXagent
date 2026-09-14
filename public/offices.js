@@ -16,6 +16,7 @@ export function projectOffice(snapshot, id = 'local') {
     tasks: snapshot.tasks.filter(belongs),
     goals: (snapshot.goals || []).filter(belongs),
     letters: (snapshot.letters || []).filter(letter => (taskOffices.get(letter.taskId) || officeId(letter)) === id),
+    events:(snapshot.events||[]).filter(event=>(taskOffices.get(event.taskId)||event.officeId||'local')===id),
     logs: snapshot.logs.filter(log => (taskOffices.get(log.taskId) || log.officeId || 'local') === id),
     settings: { ...snapshot.settings, paused: office?.paused ?? (id === 'local' ? snapshot.settings.paused : false) },
   };

@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "approved": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "nextInstruction": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "approved",
+    "summary",
+    "nextInstruction"
+  ],
+  "additionalProperties": false
+}

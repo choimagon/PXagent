@@ -142,7 +142,7 @@ Codex can execute commands and edit files for your request. The app's execution 
 
 ## Features
 
-### Seven coworkers with separate roles
+### Nine coworkers with separate roles
 
 | Department | Default name | Role |
 | --- | --- | --- |
@@ -150,8 +150,10 @@ Codex can execute commands and edit files for your request. The app's execution 
 | Boss room | 비둘기 / Pigeon | Explain progress using actual tasks and logs; separate from lead-controlled workers |
 | Development | 개발노예 | Development, debugging, design, and junior review |
 | Development | 따까리 | Small UI changes, simple fixes, and tests |
-| Writing | 글싸게 | Drafting, writing, and research documents |
-| Writing | 양식이 | Editing, document formatting, and reference organization |
+| Development | 카파시 | Repeated experiments delegated by the development lead |
+| Documents | 분석이 | Read files; structure claims, evidence, tables, figures, equations, and limitations |
+| Documents | 글싸게 | Drafting, writing, and research documents |
+| Documents | 양식이 | Editing, document formatting, and reference organization |
 | Miscellaneous | 말똥이 | Organization, ideas, and everyday work |
 
 Click a character or nameplate to open its details; **작업 배정** (Assign task) appears at the top. Set role instructions and a fixed prompt per worker. The **pencil button beside the name** opens name and appearance settings. Choose from **26 pixel characters**, including wizards, robots, ninjas, cats, penguins, and more.
@@ -166,6 +168,8 @@ The **🤖 button** in the office applies a whole team configuration. Save your 
 | Development lead | Sol / High | Terra / XHigh | Terra / Medium |
 | Writer | Sol / High | Terra / XHigh | Luna / XHigh |
 | Formatter | Terra / High | Terra / Medium | Luna / XHigh |
+| 분석이 | Terra / High | Terra / High | Luna / XHigh |
+| 카파시 | Sol / High | Terra / High | Luna / XHigh |
 | Junior, miscellaneous worker, secretary | Fixed Luna / Medium | Fixed Luna / Medium | Fixed Luna / Medium |
 
 Other workers can be adjusted individually in the sidebar. Changes take effect on the next model call.
@@ -181,6 +185,18 @@ Fast mode uses more subscription quota in exchange for faster processing on supp
 Pick a worker directly or let the lead delegate. **Goals** define an objective and completion criteria, review each result, and continue in further rounds. View states, execution stages, logs, and results; stop, retry, or continue earlier work. Each worker has a queue, while different workers can operate in parallel.
 
 Ask the secretary what is happening to receive an answer based on real tasks and logs. The sidebar also shows subscription usage and reset-credit information when available.
+
+### Planning, validation, and experiments
+
+Homunculus decomposes requests into a dependency graph, runs independent specialists in parallel, and replans failed work. **분석이** reads and analyzes documents; **Writer** writes; **Formatter** preserves facts while arranging styles and submission formats. The document department retains its original Korean room label. The development lead chooses direct implementation, junior delegation, or the independent **카파시 AutoResearch** agent. Task-specific prompts load only allowed skills from the 21-entry registry.
+
+Codex implementation uses isolated Git worktrees, or snapshots for non-Git projects. Actual diff/scope checks, JavaScript/Python syntax checks, and available project lint/test/integration/build scripts must pass before review and integration. Existing user changes remain intact. Select a real project directory; a non-Git home directory or filesystem root cannot be used for isolated implementation. Git and your project's runtime/dependencies are required for these checks. Demo and API text-only responses are visibly distinguished from actual execution.
+
+AutoResearch runs in **local Git projects only**, with fixed executable tests and a measurement command that returns a final JSON line `{"metric": number}`. Better candidates are preserved; worse or failing changes are rolled back. Fixed test and measurement files cannot be edited to inflate results. Maximum limits are **5 iterations, 10 minutes, 20,000 reported tokens, and 10 changed files**; lower limits and validation commands can be set in the assignment dialog. Token usage is checked after each Codex turn, so one in-flight turn can exceed the budget; its changes are discarded. This is not a monetary billing cap. The developer reviews the best result before integration.
+
+DOCX/PPTX text extraction needs Python 3. PDF extraction needs Poppler (`pdftotext`) or Python 3 with PyMuPDF/pypdf. Put the executables on PATH, including on Windows. PDF pages and embedded Word/PPT images can be extracted into a separate analysis cache for actual image-tool review. PDF rendering needs Poppler (`pdftoppm`) or PyMuPDF. Scanned PDFs need OCR; figures and equations require visual review. These limitations are included in analysis results. Remote SSH Git workspaces run serially; a fallback without Git records its isolation limitations. Remote AutoResearch is disabled because remote OS write boundaries cannot be enforced.
+
+Persisted events drive pixel typing, testing, reviewing, document analysis, and experiment states. Task details expose dependencies, skills, actual validation records, hypotheses, metrics, and acceptance/discard history.
 
 ### Mailbox, logs, and cleanup
 

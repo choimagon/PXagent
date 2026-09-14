@@ -49,7 +49,7 @@ before(async()=>{
     mockCalls.push({ model: input.model, effort: input.reasoning_effort });
     mockMessages.push(input.messages);
     const review=input.messages[0].content.includes('[GOAL_REVIEW]');
-    const plan=!review&&input.messages[0].content.includes('JSON만 반환');
+    const plan=!review&&input.messages[0].content.includes('[PLANNING_GRAPH]');
     const assessment=review?(goalReviews.shift()||{achieved:true,blocked:false,summary:'실제 검증을 완료했습니다.',nextInstruction:''}):null;
     res.writeHead(200,{'Content-Type':'application/json'});
     res.end(JSON.stringify({choices:[{message:{content:review?(typeof assessment==='string'?assessment:JSON.stringify(assessment)):plan?JSON.stringify({agentId:'dev',instruction:'코드 구조를 검토해주세요.'}):'실제 API 응답을 통한 검토 결과입니다.'}}]}));
@@ -58,8 +58,8 @@ before(async()=>{
 });
 after(async()=>{await stop();await new Promise(r=>mock.close(r));await rm(data,{recursive:true,force:true});});
 
-test('all seven agents begin idle; machine identity and local assets are available',async()=>{
-  const r=await request('state');assert.equal(r.status,200);assert.equal(r.data.agents.length,7);assert.equal(r.data.mode,'demo');assert.ok(r.data.computer.name);assert.ok(r.data.agents.every(a=>a.status==='idle'));
+test('all nine agents begin idle; machine identity and local assets are available',async()=>{
+  const r=await request('state');assert.equal(r.status,200);assert.equal(r.data.agents.length,9);assert.equal(r.data.mode,'demo');assert.ok(r.data.computer.name);assert.ok(r.data.agents.every(a=>a.status==='idle'));
   for(const file of ['index.html','app.js','office.js','sprites.js','styles.css','assets/Galmuri11.woff2'])assert.equal((await fetch(base+'/'+file)).status,200,file);
 });
 test('chief delegates a development task and reports; states converge to idle',async()=>{
@@ -110,9 +110,9 @@ test('API mode calls real endpoint for chief plan, worker result and final repor
   mockCalls.length=0;
   mockMessages.length=0;
   const t=await request('tasks','POST',{description:'개발 작업 계획',agentId:'chief'});const result=await poll(t.data.id);
-  assert.deepEqual(mockCalls,[{model:'local-astra',effort:'max'},{model:'local-luna',effort:'low'},{model:'local-astra',effort:'max'}]);
+  assert.deepEqual(mockCalls,[{model:'local-astra',effort:'max'},{model:'local-luna',effort:'low'},{model:'local-luna',effort:'low'},{model:'local-astra',effort:'max'}]);
   assert.ok(mockMessages[0][0].content.includes('chief-fixed:'));
-  assert.ok(mockMessages[2][0].content.includes('chief-fixed:'));
+  assert.ok(mockMessages[3][0].content.includes('chief-fixed:'));
   assert.ok(mockMessages[1][0].content.includes('dev-fixed:'));
   assert.ok(!mockMessages[1][0].content.includes('chief-fixed:'));
   assert.ok(!mockMessages[0][0].content.includes('dev-fixed:'));
@@ -214,7 +214,7 @@ test('legacy preferences and custom model IDs migrate without losing tasks or lo
   assert.equal(current.agents[0].profile,'terra');assert.equal(current.agents[1].profile,'luna');assert.equal(current.agents[2].profile,'luna');
   assert.equal(current.settings.models.sol,'old-custom-strong');assert.equal(current.settings.models.terra,'old-custom-balanced');assert.equal(current.settings.models.luna,'old-custom-fast');
   assert.equal(current.settings.models.astra,'gpt-6-astra');assert.ok(current.agents.every(a=>a.reasoningEffort==='medium'));
-  assert.equal(current.schemaVersion,5);assert.ok(current.agents.every(a=>a.fixedPrompt===''));
+  assert.equal(current.schemaVersion,6);assert.ok(current.agents.every(a=>a.fixedPrompt===''));
 });
 test('continuing tasks carries prior requests, results and folder into tasks and Goals', async () => {
   await request('settings', 'PATCH', { executor: 'demo', paused: false });
@@ -257,13 +257,14 @@ test('idle agents remain available during chief work; busy agents reject direct 
   await stop();await start({DEMO_STEP_MS:'200'});
   const dev=await request('tasks','POST',{description:'개발 팀장 직접 작업',agentId:'dev',requireIdle:true});
   assert.equal(dev.status,201);
+  let busy=false;for(let index=0;index<100;index++){const state=(await request('state')).data,agent=state.agents.find(item=>item.id==='dev');if(agent.activeTaskId===dev.data.id&&agent.phase==='coding'){busy=true;break;}await sleep(20);}assert.equal(busy,true);
+  assert.equal((await request('tasks','POST',{description:'중복 배정',agentId:'dev',requireIdle:true})).status,409);
   const chief=await request('tasks','POST',{description:'서버 개발 검토',agentId:'chief',requireIdle:true});assert.equal(chief.status,201);
   const writer=await request('tasks','POST',{description:'독립적인 글 초안',agentId:'writer',requireIdle:true});assert.equal(writer.status,201);
   let current=(await request('state')).data;
   assert.equal(current.tasks.find(t=>t.id===chief.data.id).status,'running');
   assert.equal(current.tasks.find(t=>t.id===writer.data.id).status,'running');
   assert.equal(current.agents.find(a=>a.id==='format').status,'idle');
-  assert.equal((await request('tasks','POST',{description:'중복 배정',agentId:'dev',requireIdle:true})).status,409);
   const report=await request('secretary','POST',{question:'호문클루스 지금 무슨 일 하고 있어?'});
   assert.equal(report.status,200);assert.match(report.data.answer,/비둘기/);assert.match(report.data.answer,/서버 개발 검토/);
   assert.equal((await request('secretary','POST',{question:''})).status,400);

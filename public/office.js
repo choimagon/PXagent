@@ -55,7 +55,7 @@ function lamp(x,y) { return group(x,y,`${rect(9,9,3,35,'#756952')}${rect(2,43,18
 function room(x,y,w,h,floor,wall,pattern) {
   return `${rect(x+5,y+6,w,h,'#111','opacity=".18"')}${rect(x,y,w,h,wall)}${rect(x+7,y+25,w-14,h-32,floor)}${rect(x+7,y+25,w-14,h-32,`url(#${pattern})`)}${rect(x,y,w,4,'#ede8d0','opacity=".18"')}${rect(x+7,y+20,w-14,6,'#000','opacity=".1"')}${rect(x,y,7,h,'#7a806d','opacity=".25"')}${rect(x+w-7,y,7,h,'#333b34','opacity=".3"')}${rect(x,y+h-7,w,7,wall)}`;
 }
-const names = {chief:'호문클루스',secretary:'비둘기',dev:'개발노예',junior:'따까리',writer:'글싸게',format:'양식이',misc:'말똥이'};
+const names = {chief:'호문클루스',secretary:'비둘기',dev:'개발노예',junior:'따까리',writer:'글싸게',format:'양식이',misc:'말똥이',analyzer:'분석이',autoresearch:'카파시'};
 function worker(id,x,y) {
   return `<g class="office-agent" data-agent="${id}" tabindex="0" role="button" aria-label="${names[id]} 상태 및 모델 설정" transform="translate(${x} ${y})">
     <rect class="agent-halo" x="-13" y="-8" width="77" height="142" rx="5" fill="transparent"/>
@@ -69,10 +69,15 @@ function worker(id,x,y) {
     <g class="work-bubble" transform="translate(40 -20)"><rect width="27" height="17" rx="3" fill="#cde4b6"/><path d="M4 17v4l5-4" fill="#cde4b6"/><text x="5" y="12" fill="#426344" font-size="18">···</text></g>
   </g>`;
 }
-const positions = {chief:[171,112],secretary:[330,128],dev:[548,115],junior:[684,115],writer:[160,395],format:[278,395],misc:[735,393]};
+const positions = {chief:[171,112],secretary:[330,128],dev:[548,115],autoresearch:[616,75],junior:[684,115],writer:[160,395],analyzer:[219,350],format:[278,395],misc:[735,393]};
+function workstation(id,variant='wood',screen='green') {
+  const [x,y]=positions[id];
+  return group(x,y,`${worker(id,0,0)}${desk(-24,50,variant)}${id==='dev'?monitor(-18,29,'blue')+monitor(22,29,'green'):monitor(-4,30,screen)}${keyboard(-4,70)}${id==='analyzer'||id==='writer'?papers(36,65):mug(64,62)}`);
+}
 function nameplate(id) {
-  const [x,y]=positions[id], scale=id==='secretary' ? .975 : 1;
-  return `<g class="agent-nameplate" data-nameplate="${id}" data-label-agent="${id}" tabindex="0" role="button" aria-label="${names[id]} 상태 및 모델 설정" transform="translate(${x+26*scale-55} ${y+108*scale})"><rect width="110" height="29" rx="3" fill="#2c342e"/><circle class="agent-indicator" cx="10" cy="14" r="6" fill="#92948e"/><text x="20" y="20" fill="#eeecd9" font-size="15" font-family="Galmuri, monospace">${names[id]}</text></g>`;
+  const [x,y]=positions[id], scale=id==='secretary'?.975:1;
+  const rear=id==='analyzer'||id==='autoresearch';
+  return `<g class="agent-nameplate" data-nameplate="${id}" data-label-agent="${id}" tabindex="0" role="button" aria-label="${names[id]} 상태 및 모델 설정" transform="translate(${x+26*scale-55} ${rear?y-43:y+108*scale})"><rect width="110" height="29" rx="3" fill="#2c342e"/><circle class="agent-indicator" cx="10" cy="14" r="6" fill="#92948e"/><text x="20" y="20" fill="#eeecd9" font-size="15" font-family="Galmuri, monospace">${names[id]}</text></g>`;
 }
 function plate(x,y,name,sub,c='#ede4ce') { return group(x,y,`<text fill="${c}" font-family="Galmuri, monospace" font-size="18">${name}</text><text y="15" fill="${c}" opacity=".6" font-size="12" font-family="monospace" letter-spacing="1.5">${sub}</text>`); }
 
@@ -95,18 +100,18 @@ export function officeMarkup() {
   ${room(527,302,345,277,'#596357','#717b69','stone')}
   ${rect(29,279,842,17,'#89907a')}${rect(414,27,19,246,'#89907a')}${rect(503,302,19,277,'#89907a')}
   <path d="M45 286h810" stroke="#a8ad91" stroke-width="1" stroke-dasharray="7 6"/>
-  ${plate(48,52,'사장실','THE BOSS ROOM')}${plate(459,52,'개발부서','DEVELOPMENT LAB')}${plate(48,329,'논문부서','PAPER STUDIO')}${plate(547,329,'잡다부서','THE DARK SIDE','#d1d2b7')}
+  ${plate(48,52,'사장실','THE BOSS ROOM')}${plate(459,52,'개발부서','DEVELOPMENT LAB')}${plate(48,329,'논문부서','DOCUMENT STUDIO')}${plate(547,329,'잡다부서','THE DARK SIDE','#d1d2b7')}
   ${fastScene('사장실',windowArt(302,59),'normal')}${fastScene('사장실',group(302,59,`${rect(0,0,88,56,'#9aa7a0')}${rect(4,4,80,45,'#202d50')}${rect(8,26,18,23,'#344060')}${rect(31,34,20,15,'#384563')}${rect(56,21,20,28,'#2b3957')}${rect(65,9,9,9,'#e8dfaf')}${rect(69,7,7,8,'#202d50')}${rect(15,11,2,2,'#d8e1d9')}${rect(32,18,2,2,'#d8e1d9')}${rect(51,9,2,2,'#d8e1d9')}${rect(42,3,4,49,'#dadbca')}${rect(3,25,82,4,'#dadbca')}${rect(-3,51,94,7,'#c8c9b7')}`))}<g data-department-shelf="사장실">${shelf(49,82,true)}</g>${fastScene('사장실',book(74,176,'#b2939e',-18)+book(103,183,'#819fa0',12)+book(120,244,'#a2af80',-9))}${plant(43,216)}
   <g data-secretary-furniture transform="translate(330 128) scale(.975)">${worker('secretary',0,0)}${desk(-24,50)}${monitor(-4,30,'blue')}${keyboard(-4,70)}</g>
   ${rect(130,133,139,99,'#a29a78')}${rect(134,137,131,91,'#c6bea0')}${rect(137,140,125,85,'#b5ad90')}
   ${worker('chief',171,112)}${desk(147,158)}${monitor(177,139,'purple')}${keyboard(178,178)}${papers(153,170)}${mug(229,171)}
   ${rect(58,205,63,24,'#827966')}${rect(55,201,69,12,'#b8a584')}${rect(66,213,6,16,'#7c735f')}${rect(111,213,6,16,'#7c735f')}${mug(73,195)}${papers(91,197)}
   ${server(698,76)}${server(755,76)}${server(812,76)}${fastScene('개발부서',developmentCooling())}${plant(459,206)}
-  ${rect(508,133,140,101,'#718a81')}${rect(512,136,132,95,'#7f958a')}${worker('dev',548,115)}${desk(524,165,'dark')}${monitor(530,144,'blue')}${monitor(570,144,'green')}${keyboard(546,185)}${mug(612,177)}
-  ${worker('junior',684,115)}${desk(660,165,'dark')}${monitor(690,144,'green')}${keyboard(690,185)}${mug(746,177)}
+  ${rect(508,133,140,101,'#718a81')}${rect(512,136,132,95,'#7f958a')}
+  ${workstation('autoresearch','dark','blue')}${workstation('dev','dark')}${workstation('junior','dark')}
   <g data-department-shelf="논문부서">${shelf(50,350)}${shelf(380,350)}</g>${fastScene('논문부서',bookStack(65,467)+bookStack(103,489)+book(76,507,'#b5987e',14)+bookStack(390,465)+bookStack(433,487)+book(391,507,'#829ea2',-12))}${plant(49,505)}${plant(444,509)}
   ${rect(141,407,210,115,'#afa27e')}${rect(145,411,202,107,'#c5bb99')}
-  ${worker('writer',160,395)}${worker('format',278,395)}${desk(136,447)}${desk(254,447)}${monitor(166,429,'amber')}${monitor(284,429,'green')}${keyboard(167,467)}${keyboard(285,467)}${papers(141,456)}${papers(312,456)}${mug(222,455)}${mug(263,455)}${lamp(345,435)}
+  ${workstation('analyzer','wood','purple')}${workstation('writer','wood','amber')}${workstation('format')}${lamp(345,435)}
   ${rect(153,539,170,11,'#9c916e')}${rect(157,539,162,3,'#c9bd96')}${Array.from({length:7},(_,i)=>rect(164+i*20,527,16,12,['#9b9e79','#b69777','#839d97'][i%3])).join('')}
   ${rect(558,357,87,91,'#414d44')}${rect(561,360,81,86,'#3b473e')}${Array.from({length:6},(_,i)=>rect(564+i*14,357,5,91,'#8a9580')).join('')}${rect(558,382,87,4,'#929b84')}${rect(558,421,87,4,'#929b84')}
   <g data-department-sign="잡다부서">${rect(723,352,114,28,'#78816a')}${rect(727,356,106,20,'#444f43')}${rect(733,361,94,2,'#b4b18a')}${rect(733,366,67,2,'#8e9478')}</g>

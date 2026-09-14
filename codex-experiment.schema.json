@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "hypothesis": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "hypothesis"
+  ],
+  "additionalProperties": false
+}

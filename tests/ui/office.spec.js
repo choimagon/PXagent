@@ -11,10 +11,10 @@ test('office controls, real-time sidebar, delegation, model changes and persiste
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('/');
   await expect(page.getByRole('heading',{name:/오피스 뷰/})).toBeVisible();
-  await expect(page.locator('#office-svg [data-agent]')).toHaveCount(7);
+  await expect(page.locator('#office-svg [data-agent]')).toHaveCount(9);
   await expect(page.locator('#office-svg')).toBeVisible();
   await expect(page.locator('#connection')).toContainText('연결됨');
-  await expect(page.locator('.agent-model-summary')).toHaveCount(7);
+  await expect(page.locator('.agent-model-summary')).toHaveCount(9);
   await expect(page.locator('[data-row="dev"] .agent-model-name')).toHaveText('Terra');
   await expect(page.locator('[data-row="dev"] .agent-reasoning-summary')).toHaveText('추론 Medium');
   const dot=await page.locator('[data-row="dev"] .agent-dot').boundingBox();expect(dot.width).toBe(24);expect(dot.height).toBe(24);
@@ -102,7 +102,7 @@ test('Codex subscription screen exposes workspace, live commands and login witho
   state.mode='codex';state.settings.executor='codex';state.codex={ready:true,installed:true,auth:'chatgpt',version:'codex-cli test',message:'ChatGPT 구독 로그인 연결됨'};
   const task={id:'codex-ui-task',title:'실제 개발 작업',description:'파일 생성과 검증',agentId:'dev',activeAgentId:'dev',status:'running',runMode:'codex',progress:40,createdAt:Date.now(),startedAt:Date.now(),result:'',error:null,workingDirectory:state.settings.workingDirectory,computerName:state.computer.name,lastActivity:'명령 실행 · node verify.mjs'};
   state.tasks.push(task);state.logs.push({id:'codex-ui-log',at:Date.now(),agentId:'dev',taskId:task.id,message:'파일 변경 · add: artifact.txt'});
-  Object.assign(state.agents.find(agent=>agent.id==='dev'),{status:'running',activeTaskId:task.id,progress:40});
+  Object.assign(state.agents.find(agent=>agent.id==='dev'),{status:'running',phase:'coding',activeTaskId:task.id,progress:40});
   await page.route('**/api/state',route=>route.fulfill({json:state}));
   await page.route('**/api/events',route=>route.abort());
   let submitted;
@@ -118,7 +118,7 @@ test('Codex subscription screen exposes workspace, live commands and login witho
   await expect(page.locator('#task-directory')).toHaveCount(0);
   const goalButton=page.getByRole('button',{name:'Goal',exact:true});
   await expect(goalButton).toHaveAttribute('aria-pressed','false');
-  await expect(page.locator('#task-form textarea')).toHaveCount(1);
+  await expect(page.locator('#task-form textarea')).toHaveCount(2);
   await expect(page.locator('#task-form button')).toHaveCount(3);
   await goalButton.click();await expect(goalButton).toHaveAttribute('aria-pressed','true');
   expect(submitted).toBeUndefined();
@@ -129,7 +129,7 @@ test('Codex subscription screen exposes workspace, live commands and login witho
   await page.getByRole('button',{name:'사무실 설정',exact:true}).first().click();
   await expect(page.locator('#executor')).toHaveValue('codex');await expect(page.locator('#codex-status')).toHaveText('ChatGPT 구독 로그인 연결됨');
   await expect(page.locator('#api-key')).not.toBeVisible();await expect(page.locator('#working-directory')).toBeVisible();
-  await expect(page.locator('#settings-form')).toContainText('모든 에이전트가 전체 접근 권한');
+  await expect(page.locator('#settings-form')).toContainText('격리된 프로젝트 폴더');
   await page.screenshot({path:'test-results/codex-settings.png',fullPage:true});
 });
 
@@ -328,7 +328,7 @@ test('Tailscale device additions and name/IP changes appear automatically',async
 test('office audio plays typing only during work and louder report chimes, with persistent mute',async({page,request})=>{
   const snapshot=await(await request.get('/api/state')).json();
   snapshot.offices.local.agents=snapshot.agents;
-  snapshot.agents[0].status='running';
+  snapshot.agents[0].status='running';snapshot.agents[0].phase='coding';
   await page.route('**/api/state',route=>route.fulfill({json:snapshot}));
   await page.addInitScript(()=>{
     localStorage.removeItem('px-muted');
@@ -364,7 +364,7 @@ test('office audio plays typing only during work and louder report chimes, with 
   await page.waitForTimeout(1100);expect(await page.evaluate(()=>window.audioEvents.taps)).toBe(completed);
   await page.locator('[data-action="sound"]').click();
   expect(await page.evaluate(()=>localStorage.getItem('px-muted'))).toBe('true');
-  snapshot.agents[0].status='running';
+  snapshot.agents[0].status='running';snapshot.agents[0].phase='coding';
   await page.evaluate(snapshot=>window.officeEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
   await page.waitForTimeout(1100);expect(await page.evaluate(()=>window.audioEvents.taps)).toBe(completed);
 });
@@ -372,7 +372,7 @@ test('office audio plays typing only during work and louder report chimes, with 
 
 test('development team shows the junior beside its lead with independent Luna settings',async({page})=>{
   await page.goto('/');
-  await expect(page.locator('#office-svg [data-agent]')).toHaveCount(7);
+  await expect(page.locator('#office-svg [data-agent]')).toHaveCount(9);
   await expect(page.locator('[data-row="dev"] .agent-info small')).toContainText('팀장');
   await expect(page.locator('[data-row="junior"]')).toHaveClass(/junior-agent/);
   await expect(page.locator('[data-row="junior"] .agent-info')).toContainText('개발노예 후배');
@@ -391,7 +391,7 @@ test('busy agents block assignment while idle coworkers and the secretary remain
   snapshot.offices.local.agents=snapshot.agents;
   const task={id:'ongoing-chief',agentId:'chief',activeAgentId:'dev',title:'서버 개발 작업',description:'서버 개발 작업',status:'running',progress:40,createdAt:Date.now(),steps:[{label:'코드 수정 중'}],lastActivity:'파일 수정 중'};
   snapshot.tasks.push(task);
-  for(const id of ['chief','dev'])Object.assign(snapshot.agents.find(a=>a.id===id),{status:'running',activeTaskId:task.id,progress:40});
+  for(const id of ['chief','dev'])Object.assign(snapshot.agents.find(a=>a.id===id),{status:'running',phase:'coding',activeTaskId:task.id,progress:40});
   await page.route('**/api/state',route=>route.fulfill({json:snapshot}));
   await page.addInitScript(()=>{window.EventSource=class {constructor(){window.testEvents=this;}close(){}};});
   await page.goto('/');
@@ -745,4 +745,37 @@ test('history trash previews all and date deletion and requires confirmation',as
   await page.getByRole('button',{name:'작업 현황',exact:true}).click();await expect(page.locator('#task-board')).toContainText('삭제 확인 작업');
   await page.getByRole('button',{name:'작업 현황 삭제',exact:true}).click();await page.getByRole('button',{name:'전체 삭제',exact:true}).click();await page.getByRole('button',{name:'확인 후 삭제',exact:true}).click();await expect(page.locator('#task-board')).not.toContainText('삭제 확인 작업');
   await page.getByRole('button',{name:'활동 기록',exact:true}).click();await page.getByRole('button',{name:'활동 기록 삭제',exact:true}).click();await page.getByRole('button',{name:'전체 삭제',exact:true}).click();await page.getByRole('button',{name:'확인 후 삭제',exact:true}).click();await expect(page.locator('#activity-list .log-row')).toHaveCount(0);
+});
+
+test('분석이 and 카파시 open independent settings; experiment requests are assigned through developer',async({page})=>{
+  await page.goto('/');
+  await expect(page.locator('#office-svg [data-agent="analyzer"]')).toBeVisible();
+  await page.locator('#office-svg [data-agent="analyzer"]').click();
+  await expect(page.locator('#modal')).toContainText('분석이');
+  await page.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.locator('#office-svg [data-agent="autoresearch"]').click();
+  await page.getByRole('button',{name:'개발 팀장에게 실험 요청',exact:true}).click();
+  await expect(page.locator('#task-form [name="agentId"]')).toHaveValue('dev');
+  await page.locator('.execution-options summary').click();
+  await expect(page.locator('[name="maxIterations"]')).toHaveValue('5');
+  await expect(page.locator('[name="maxTokens"]')).toHaveValue('20000');
+  await expect(page.locator('.execution-options')).toContainText('진행 중인 턴은 예산을 넘길 수');
+});
+
+test('task graph shows dependencies, actual validation and accepted or discarded experiment metrics',async({page,request})=>{
+  const snapshot=await(await request.get('/api/state')).json();
+  const validation={status:'PASS',checks:[{name:'node test.cjs',passed:true,output:'actual test output',exitCode:0}],changedFiles:['train.py']};
+  const task={id:'graph-visual-test',title:'실험 그래프 확인',description:'실험과 문서 분석',agentId:'chief',status:'done',runMode:'codex',progress:100,createdAt:Date.now(),startedAt:Date.now()-1000,finishedAt:Date.now(),result:'검수 완료',validation,mergedFiles:['train.py'],graph:{summary:'독립 분석과 개발 실험',replans:1,tasks:[{id:'T1',agentId:'analyzer',instruction:'문서 근거 분석',dependsOn:[],skills:['pdf-analysis'],status:'done',validation},{id:'T2',agentId:'dev',instruction:'고정 metric 개선',dependsOn:['T1'],skills:['python','testing'],status:'done',developmentMethod:'autoresearch',validation,research:{experiments:[{experimentId:'exp-001',status:'accepted',hypothesis:'실제 후보 A',metricBefore:5,metricAfter:3,changes:['train.py']},{experimentId:'exp-002',status:'discarded',hypothesis:'실제 후보 B',metricBefore:3,metricAfter:8,changes:['train.py']}],result:{baselineMetric:5,bestMetric:3,stopReason:'반복 횟수 제한'}}}]} };
+  snapshot.tasks.push(task);
+  await page.route('**/api/state',route=>route.fulfill({json:snapshot}));
+  await page.route('**/api/events',route=>route.abort());
+  await page.goto('/');await page.getByRole('button',{name:'작업 현황',exact:true}).click();
+  await page.locator('#task-board .task-row-main[data-id="graph-visual-test"]').click();
+  await expect(page.locator('.planning-graph')).toContainText('선행: T1');
+  await expect(page.locator('.planning-graph')).toContainText('pdf-analysis');
+  await expect(page.locator('.experiment-history')).toContainText('기준선 5 → best 3');
+  await expect(page.locator('.experiment-history')).toContainText('exp-001 · accepted');
+  await expect(page.locator('.experiment-history')).toContainText('exp-002 · discarded');
+  await page.locator('.validation-record').first().locator('summary').click();
+  await expect(page.locator('.validation-record').first()).toContainText('actual test output');
 });

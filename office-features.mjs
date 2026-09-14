@@ -6,7 +6,7 @@ export function ensureOfficeFeatures(state) {
   for (const task of state.tasks) {
     if (!task.reportDeleted && ['done', 'failed', 'stopped'].includes(task.status) && (task.result || task.error) && !state.letters.some(letter => letter.taskId === task.id)) postTaskReport(state, task, state.goals.find(goal => goal.id === task.goalId));
   }
-  state.schemaVersion = 5;
+  state.schemaVersion = 6;
 }
 
 export function postTaskReport(state, task, goal = null) {
@@ -22,7 +22,7 @@ export function postTaskReport(state, task, goal = null) {
 export function goalTask(goal) {
   const round = ++goal.round;
   const description = `[Goal · ${round}차 실행]\n목표: ${goal.description}\n완료 기준: ${goal.successCriteria || '사장님 요청의 모든 요구 사항을 실제 수행하고 검증할 것'}\n${goal.nextInstruction ? '\n이번 회차 지시: ' + goal.nextInstruction : ''}${goal.lastSummary ? '\n이전 회차 검토: ' + goal.lastSummary.slice(-6000) : ''}\n목표 달성을 위해 필요한 작업을 수행하고 실제 결과와 검증 근거를 보고하세요.`;
-  const task = { id: randomUUID(), goalId: goal.id, goalRound: round, tailWeb:goal.tailWeb===true, title: `${goal.title} · Goal ${round}차`, description, agentId: 'chief', machineId:goal.machineId,remoteComputer:goal.remoteComputer,remoteDirectory:goal.remoteDirectory,parentTaskId: goal.parentTaskId, previousContext: goal.previousContext, workingDirectory: goal.workingDirectory, status: 'queued', progress: 0, createdAt: Date.now(), priority: 'normal', result: '', steps: [] };
+  const task = { id: randomUUID(), goalId: goal.id, goalRound: round, tailWeb:goal.tailWeb===true, validationCommands:goal.validationCommands||[],researchLimits:goal.researchLimits||{},title: `${goal.title} · Goal ${round}차`, description, agentId: 'chief', machineId:goal.machineId,remoteComputer:goal.remoteComputer,remoteDirectory:goal.remoteDirectory,parentTaskId: goal.parentTaskId, previousContext: goal.previousContext, workingDirectory: goal.workingDirectory, status: 'queued', progress: 0, createdAt: Date.now(), priority: 'normal', result: '', steps: [] };
   goal.currentTaskId = task.id;
   return task;
 }
@@ -47,5 +47,5 @@ export function continuationContext(state, taskId) {
     history.unshift(`[이전 작업: ${task.title}]\n작업 대상: ${task.remoteComputer?.name||task.computerName||'이 컴퓨터'}\n작업 폴더: ${task.remoteDirectory || task.workingDirectory}\n요청: ${task.description.slice(0, 2000)}\n결과: ${(task.result || task.workerResult || task.error || '결과 없음').slice(-4000)}`);
     task = state.tasks.find(item => item.id === task.parentTaskId);
   }
-  return { tailWeb:source.tailWeb===true, machineId:source.machineId,remoteDirectory:source.remoteDirectory,parentTaskId: source.id, previousContext: history.join('\n\n').slice(-24000), workingDirectory: source.workingDirectory };
+  return { validationCommands:source.validationCommands||[],researchLimits:source.researchLimits||{},tailWeb:source.tailWeb===true, machineId:source.machineId,remoteDirectory:source.remoteDirectory,parentTaskId: source.id, previousContext: history.join('\n\n').slice(-24000), workingDirectory: source.workingDirectory };
 }

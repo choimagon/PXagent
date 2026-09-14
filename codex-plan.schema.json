@@ -1,9 +1,60 @@
 {
   "type": "object",
   "properties": {
-    "agentId": { "type": "string", "enum": ["dev", "junior", "writer", "format", "misc"] },
-    "instruction": { "type": "string" }
+    "summary": {
+      "type": "string"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string",
+            "enum": [
+              "dev",
+              "junior",
+              "analyzer",
+              "writer",
+              "format",
+              "misc"
+            ]
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "instruction": {
+            "type": "string"
+          },
+          "dependsOn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "skills",
+          "instruction",
+          "dependsOn"
+        ],
+        "additionalProperties": false
+      }
+    }
   },
-  "required": ["agentId", "instruction"],
+  "required": [
+    "summary",
+    "tasks"
+  ],
   "additionalProperties": false
 }

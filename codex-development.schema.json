@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "properties": {
+    "method": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "junior",
+        "autoresearch"
+      ]
+    },
+    "instruction": {
+      "type": "string"
+    },
+    "research": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "metricCommand": {
+              "type": "string"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "minimize",
+                "maximize"
+              ]
+            },
+            "maxIterations": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxMinutes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxFiles": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "allowedFiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "validationCommands": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "metricCommand",
+            "direction",
+            "maxIterations",
+            "maxMinutes",
+            "maxTokens",
+            "maxFiles",
+            "allowedFiles",
+            "validationCommands"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "method",
+    "instruction",
+    "research"
+  ],
+  "additionalProperties": false
+}

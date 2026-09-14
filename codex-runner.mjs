@@ -1,12 +1,12 @@
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { access, realpath, stat } from 'node:fs/promises';
+import { access, realpath, stat, mkdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
 const exec = promisify(execFile);
-export const CODEX_PERMISSIONS = Object.freeze({ sandboxMode: 'danger-full-access', approvalPolicy: 'never' });
+export const CODEX_PERMISSIONS = Object.freeze({ sandboxMode: 'workspace-write', approvalPolicy: 'never' });
 // Reuse Codex's own account storage; never copy tokens into the office app.
 export function codexEnvironment() {
   const allowed = ['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT', 'PATH', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'CODEX_HOME', 'ELECTRON_RUN_AS_NODE', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY'];
@@ -68,15 +68,20 @@ export function foldersOverlap(a, b) {
   return inside(a, b) || inside(b, a);
 }
 
-export async function runCodex({ binary, directory, model, reasoningEffort, fastMode = false, prompt, signal, schema, extraEnv = {}, sandboxMode = CODEX_PERMISSIONS.sandboxMode, onEvent = () => {}, timeoutMs = 30 * 60_000 }) {
+export async function runCodex({ binary, directory, model, reasoningEffort, fastMode = false, prompt, signal, schema, extraEnv = {}, sandboxMode = CODEX_PERMISSIONS.sandboxMode, onEvent = () => {}, timeoutMs = 30 * 60_000, maxTokens }) {
   if (signal.aborted) throw signal.reason;
   const args = ['exec', '--ignore-user-config', '--json', '--color', 'never', '--skip-git-repo-check', '--sandbox', sandboxMode, '-C', directory, '-m', model,
     '-c', `approval_policy=${JSON.stringify(CODEX_PERMISSIONS.approvalPolicy)}`, '-c', 'forced_login_method="chatgpt"', '-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`];
   args.push('-c', `features.fast_mode=${fastMode}`, '-c', `service_tier=${fastMode ? '"fast"' : '"default"'}`);
+  let temporary;
+  if(sandboxMode==='workspace-write'){
+    args.push('-c','sandbox_workspace_write.network_access=true','-c','sandbox_workspace_write.writable_roots=[]','-c','sandbox_workspace_write.exclude_slash_tmp=true','-c','sandbox_workspace_write.exclude_tmpdir_env_var=true');
+    temporary=path.join(directory,'.px-runtime','tmp');await mkdir(temporary,{recursive:true});
+  }
   if (schema) args.push('--output-schema', schema);
   args.push('-');
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { cwd: directory, env: { ...codexEnvironment(), ...extraEnv }, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true });
+    const child = spawn(binary, args, { cwd: directory, env: { ...codexEnvironment(), ...(temporary?{TMPDIR:temporary,TEMP:temporary,TMP:temporary}:{}),...extraEnv }, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true });
     let buffer = '', stderr = '', result = '', failure = '', threadId = null, usage = null, completed = false, stopReason, killTimer;
     let eventChain = Promise.resolve();
     function kill(force = false) {
@@ -86,12 +91,12 @@ export async function runCodex({ binary, directory, model, reasoningEffort, fast
     function stop(reason) { if (stopReason) return; stopReason = reason; kill(); killTimer = setTimeout(() => kill(true), 2000); }
     const onAbort = () => stop(signal.reason || new Error('작업이 중지되었습니다.'));
     signal.addEventListener('abort', onAbort, { once: true });
-    const timeout = setTimeout(() => stop(new Error('Codex 작업 시간이 30분을 초과했습니다. 작업을 나누어 다시 맡겨주세요.')), timeoutMs);
+    const timeout = setTimeout(() => stop(new Error(`Codex 작업 시간이 ${Math.ceil(timeoutMs/60000)}분을 초과했습니다. 작업을 나누어 다시 맡겨주세요.`)), timeoutMs);
     function event(line) {
       let value; try { value = JSON.parse(line); } catch { return; }
       if (value.type === 'thread.started') threadId = value.thread_id;
       if (value.type === 'item.completed' && value.item?.type === 'agent_message') result = value.item.text || result;
-      if (value.type === 'turn.completed') { completed = true; usage = value.usage; }
+      if (value.type === 'turn.completed') { completed = true; usage = value.usage;if(maxTokens!==undefined&&(usage?.input_tokens||0)+(usage?.output_tokens||0)>maxTokens)stop(new Error('AutoResearch 토큰 제한에 도달했습니다.')); }
       if (value.type === 'turn.failed' || value.type === 'error') failure = value.error?.message || value.message || 'Codex 실행 오류';
       eventChain = eventChain.then(() => onEvent(value)).catch(error => stop(error));
     }

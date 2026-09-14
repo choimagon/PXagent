@@ -21,3 +21,7 @@ test('confirmation deletes only previewed records and rechecks execution status'
  applyCleanup(state,plan);assert.ok(state.tasks.some(t=>t.id==='old'));assert.ok(state.tasks.some(t=>t.id==='new'));
  const logs=cleanupPlan(state,{kind:'logs',cutoff:100});assert.deepEqual(logs.logs,['log']);applyCleanup(state,logs);assert.equal(state.logs.length,2);
 });
+test('activity cleanup removes previewed events even when their old logs have rolled out, preserving bus history identity',()=>{
+ const state=fixture();state.events=[{id:'event-old',officeId:'local',at:1,logId:'already-rolled-out'},{id:'event-boundary',officeId:'local',at:100},{id:'event-peer',officeId:'peer',at:1}];const history=state.events,plan=cleanupPlan(state,{kind:'logs',cutoff:100});
+ state.events.push({id:'new-event',officeId:'local',at:2});applyCleanup(state,plan);assert.equal(state.events,history);assert.deepEqual(state.events.map(event=>event.id),['event-boundary','event-peer','new-event']);
+});

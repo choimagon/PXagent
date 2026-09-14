@@ -6,9 +6,9 @@ export function cleanupPlan(state, {officeId:scope='local',kind,cutoff=null}, ac
   const belongs=item=>officeId(tasks.get(item.taskId)||item.machineId||item.officeId)==scope;
   const old=timestamp=>cutoff===null||Number(timestamp)<cutoff;
   const safeTask=t=>terminalTasks.has(t.status)&&!activeIds.has(t.id)&&(!t.goalId||terminalGoals.has(state.goals.find(g=>g.id===t.goalId)?.status));
-  const plan={scope,kind,cutoff,letters:[],tasks:[],goals:[],logs:[]};
+  const plan={scope,kind,cutoff,letters:[],tasks:[],goals:[],logs:[],events:[]};
   if(kind==='letters') plan.letters=state.letters.filter(l=>belongs(l)&&old(l.createdAt)).map(l=>l.id);
-  else if(kind==='logs') plan.logs=state.logs.filter(l=>belongs(l)&&old(l.at)).map(l=>l.id);
+  else if(kind==='logs') {plan.logs=state.logs.filter(l=>belongs(l)&&old(l.at)).map(l=>l.id);plan.events=(state.events||[]).filter(event=>belongs(event)&&old(event.at)).map(event=>event.id);}
   else if(kind==='tasks') {
     plan.tasks=state.tasks.filter(t=>officeId(t)===scope&&safeTask(t)&&old(t.finishedAt||t.createdAt)).map(t=>t.id);
     const removed=new Set(plan.tasks);
@@ -30,5 +30,6 @@ export function applyCleanup(state,plan,activeIds=new Set()) {
     for(const task of state.tasks)if(taskIds.has(task.id))task.reportDeleted=true;
   }
   for(const key of ['letters','tasks','goals','logs']){const ids=new Set(removed[key]);state[key]=state[key].filter(item=>!ids.has(item.id));}
+  const logs=new Set(removed.logs),tasks=new Set(removed.tasks),eligibleEvents=new Set(eligible.events),events=new Set((plan.events||[]).filter(id=>eligibleEvents.has(id)));if(state.events){const remaining=state.events.filter(event=>!events.has(event.id)&&!logs.has(event.logId)&&!tasks.has(event.taskId));state.events.splice(0,state.events.length,...remaining);}
   return cleanupCounts(removed);
 }

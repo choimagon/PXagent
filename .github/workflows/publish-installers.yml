@@ -75,4 +75,8 @@ jobs:
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "PXagents $RELEASE_TAG" --notes-file "$GITHUB_WORKSPACE/RELEASE_NOTES.md"
           fi
           gh release upload "$RELEASE_TAG" ./* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          fs.appendFileSync(`${process.env.GITHUB_WORKSPACE}/RELEASE_NOTES.md`, `\n\n## 설치파일 빌드 기준\n\n[${process.env.BUILD_SHA}](https://github.com/${process.env.GH_REPO}/commit/${process.env.BUILD_SHA})\n`);
+          JS
+          gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file "$GITHUB_WORKSPACE/RELEASE_NOTES.md"
