@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile, chmod, mkdir, rm, realpath, stat } from '
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { findCodex } from '../codex-runner.mjs';
+import { findCodex, runCodex } from '../codex-runner.mjs';
 
 let server, root, base, binary, workspace, other;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -170,11 +170,19 @@ test('explicit idle coworker assignments execute during chief work in the same s
 test('stop terminates the live Codex process before freeing the agent', async () => {
   const created=await request('tasks','POST',{description:'slow-job',agentId:'dev',workingDirectory:workspace});
   let pid;
-  for(let i=0;i<100;i++){const calls=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);pid=calls.find(call=>call.prompt.includes('slow-job'))?.pid;if(pid)break;await sleep(20);}
+  for(let i=0;i<100;i++){const calls=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);pid=calls.find(call=>call.prompt.includes('slow-job')&&!call.prompt.includes('[DEVELOPMENT_METHOD]'))?.pid;if(pid)break;await sleep(20);}
   assert.ok(pid);assert.equal((await request('settings','PATCH',{executor:'demo'})).status,409);
   assert.equal((await request(`tasks/${created.data.id}/stop`,'POST',{})).status,200);
   const {state}=await poll(created.data.id,'stopped');assert.equal(state.agents.find(agent=>agent.id==='dev').status,'idle');
   assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
+});
+
+test('stopping during writable sandbox preparation never starts a Codex process',async()=>{
+  const before=await readFile(path.join(root,'calls.jsonl'),'utf8'),controller=new AbortController(),reason=new Error('Stop during preparation');
+  const pending=runCodex({binary,directory:workspace,model:'gpt-5.6-terra',reasoningEffort:'high',prompt:'abort-preparation-only',signal:controller.signal,sandboxMode:'workspace-write'});
+  controller.abort(reason);
+  await assert.rejects(pending,error=>error===reason);
+  assert.equal(await readFile(path.join(root,'calls.jsonl'),'utf8'),before);
 });
 
 test('subscription Goal reviews use structured output and pass remaining work into the next execution', async () => {

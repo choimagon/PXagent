@@ -80,6 +80,7 @@ export async function runCodex({ binary, directory, model, reasoningEffort, fast
   }
   if (schema) args.push('--output-schema', schema);
   args.push('-');
+  if (signal.aborted) throw signal.reason;
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { cwd: directory, env: { ...codexEnvironment(), ...(temporary?{TMPDIR:temporary,TEMP:temporary,TMP:temporary}:{}),...extraEnv }, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true });
     let buffer = '', stderr = '', result = '', failure = '', threadId = null, usage = null, completed = false, stopReason, killTimer;
