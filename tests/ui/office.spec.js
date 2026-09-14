@@ -779,3 +779,16 @@ test('task graph shows dependencies, actual validation and accepted or discarded
   await page.locator('.validation-record').first().locator('summary').click();
   await expect(page.locator('.validation-record').first()).toContainText('actual test output');
 });
+
+test('sidebar updater offers desktop downloads, progress and restart while preserving ready state after a busy refusal',async({page})=>{
+  await page.route('**/api/state',async route=>{const state=await(await route.fetch()).json();state.settings.setupComplete=true;await route.fulfill({json:state});});
+  await page.addInitScript(()=>{
+    let state={status:'idle',currentVersion:'2.1.1',message:'새 버전을 확인해보세요.',progress:0},listener;
+    window.pxDesktop={updateStatus:async()=>state,onUpdateStatus:callback=>{listener=callback;return()=>{};},checkUpdate:async()=>state={...state,status:'available',latestVersion:'2.1.2',message:'새 버전으로 업데이트할 수 있어요.',notes:'New release'},downloadUpdate:async()=>{state={...state,status:'downloading',progress:45,message:'설치파일을 다운로드하고 있어요.'};listener(state);await new Promise(r=>setTimeout(r,400));return state={...state,status:'ready',progress:100,message:'다운로드가 완료됐어요.'};},installUpdate:async()=>{throw Error('진행 중이거나 대기 중인 작업·Goal을 완료하거나 중지한 뒤 업데이트해주세요.');}};
+  });
+  await page.goto('/');await page.getByRole('button',{name:'앱 업데이트',exact:true}).click();await expect(page.locator('#modal')).toContainText('현재 2.1.1');await expect(page.getByRole('button',{name:'업데이트 다운로드',exact:true})).toBeVisible();await page.getByRole('button',{name:'업데이트 다운로드',exact:true}).click();await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow','45');await expect(page.getByRole('button',{name:'업데이트하고 재시작',exact:true})).toBeVisible();await page.getByRole('button',{name:'업데이트하고 재시작',exact:true}).click();await expect(page.locator('#modal')).toContainText('진행 중이거나 대기 중인');await expect(page.getByRole('button',{name:'업데이트하고 재시작',exact:true})).toBeEnabled();
+});
+
+test('web sidebar updater explains that installation is required and links the official download',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'앱 업데이트',exact:true}).click();await expect(page.locator('#modal')).toContainText('설치된 데스크톱 앱');await expect(page.getByRole('link',{name:'설치파일 다운로드',exact:true})).toHaveAttribute('href','https://github.com/choimagon/PXagent/releases/latest');
+});

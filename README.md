@@ -2,7 +2,7 @@
 <h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>내 ChatGPT 구독으로 운영하는 픽셀 멀티에이전트 사무실</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.0-91b77a?style=flat-square" alt="버전 2.1.0"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.1-91b77a?style=flat-square" alt="버전 2.1.1"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
@@ -97,14 +97,20 @@ sh /tmp/pxagents-install.sh i
 
 ```sh
 # 다운로드한 파일이 있는 폴더에서 실행
-sudo apt install ./PXagents-2.1.0-linux-x64.deb
+sudo apt install ./PXagents-2.1.1-linux-x64.deb
 # ARM64 시스템은 대신 다음 파일 사용
-# sudo apt install ./PXagents-2.1.0-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.1-linux-arm64.deb
 ```
 
 AppImage를 선택한 경우 FUSE 2 런타임이 추가로 필요할 수 있습니다. [모든 Linux 설치파일](https://github.com/choimagon/PXagent/releases/latest)
 
-> 설치 스크립트는 릴리스의 SHA-256 체크섬을 확인합니다. 업데이트할 때는 앱을 종료하고 같은 설치 명령을 다시 실행하세요. 서명·공증되지 않은 배포물은 Windows SmartScreen 또는 macOS 보안 확인이 나타날 수 있습니다.
+> 설치 스크립트는 릴리스의 SHA-256 체크섬을 확인합니다. 서명·공증되지 않은 배포물은 Windows SmartScreen 또는 macOS 보안 확인이 나타날 수 있습니다.
+
+## 업데이트
+
+왼쪽 사이드바의 **업데이트**를 누르면 GitHub의 최신 정식 버전을 확인합니다. 새 버전 다운로드가 끝나면 **업데이트 후 재시작**을 누르세요. OS와 CPU에 맞는 설치파일을 선택하고 SHA-256을 검증한 뒤 앱을 교체합니다. 계정, 에이전트 설정, 편지함과 작업 기록은 유지합니다. 실행 중이거나 대기 중인 작업·Goal은 먼저 완료하거나 중지해야 합니다.
+
+2.1.0 이전 앱은 2.1.1 이상 설치파일을 **한 번 덮어 설치**하면 버튼이 생깁니다. 삭제할 필요가 없습니다. Linux DEB 자동 설치에는 `pkexec`(PolicyKit)과 관리자 승인이 필요합니다. 앱 설치 폴더에 쓰기 권한이 없거나 PolicyKit이 없으면 **설치파일 열기**로 기존 앱 위에 설치하세요. 웹 화면에서는 데스크톱 설치파일 다운로드를 안내합니다.
 
 ## 삭제
 

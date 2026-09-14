@@ -184,7 +184,9 @@ async function deleteOffice(id) {
     await changed();
   } finally {deletingOffices.delete(id);schedule();}
 }
+let updatePreparing=false;
 function assertOfficeAvailable(id) {
+  if(updatePreparing)throw fail(409,'업데이트를 준비 중입니다. 앱을 다시 시작한 뒤 작업해주세요.');
   id=officeId(id);
   if(state.deletedOffices[id]||deletingOffices.has(id))throw fail(409,'사무실을 삭제했습니다. Tailscale 컴퓨터에 다시 접속해주세요.');
 }
@@ -529,7 +531,7 @@ function finishGoalRound(goal, task) {
   log(`Goal ${goal.round}차 실행을 대기열에 넣었습니다.`, 'chief', task.id);
 }
 function schedule() {
-  if (shuttingDown) return;
+  if (shuttingDown||updatePreparing) return;
   for (const task of state.tasks.filter(t => t.status === 'queued')) {
     if (state.deletedOffices[officeId(task)]||deletingOffices.has(officeId(task))||officePaused(task.machineId)||agentReservations.has(reservationKey(task.agentId,task.machineId))) continue;
     // File edits in overlapping folders still share a queue.
@@ -582,6 +584,13 @@ const server = http.createServer(async (req, res) => {
       return json(res,200,result);
     }
     if (url.pathname.startsWith('/api/') && !authorized(req)) throw fail(401, '사무실 비밀번호를 입력해주세요.');
+    if (url.pathname==='/api/update/prepare'&&method==='POST') {
+      if(process.env.PX_DESKTOP!=='1')throw fail(400,'설치된 앱에서 업데이트해주세요.');
+      if(controllers.size||secretaryControllers.size||state.tasks.some(task=>task.status==='queued')||state.goals.some(goal=>['queued','running','reviewing'].includes(goal.status)))throw fail(409,'진행 중이거나 대기 중인 작업·Goal을 완료하거나 중지한 뒤 업데이트해주세요.');
+      updatePreparing=true;return json(res,200,{ok:true});
+    }
+    if(url.pathname==='/api/update/cancel'&&method==='POST'){if(process.env.PX_DESKTOP!=='1')throw fail(400,'설치된 앱에서 업데이트해주세요.');updatePreparing=false;schedule();return json(res,200,{ok:true});}
+    if(updatePreparing&&method!=='GET'&&url.pathname.startsWith('/api/'))throw fail(409,'업데이트를 준비 중입니다. 앱을 다시 시작한 뒤 작업해주세요.');
     if(url.pathname==='/api/setup'&&method==='GET') {
       tailscaleBinary=await findTailscale();computerCache=null;
       const remote=await computers();
@@ -641,6 +650,7 @@ const server = http.createServer(async (req, res) => {
       const report=secretaryReport(question,id);
       const agent={...agentsFor(id).find(a=>a.id==='secretary')};
       const model=state.settings.models[agent.profile];
+      assertOfficeAvailable(id);
       if(mode()==='demo')return json(res,200,{...report,model,reasoningEffort:agent.reasoningEffort});
       const controller=new AbortController();controller.officeId=id;secretaryControllers.add(controller);
       const disconnected=()=>{if(!res.writableEnded)controller.abort(new Error('Secretary request closed'));};

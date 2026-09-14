@@ -1,5 +1,6 @@
 import { FIXED_AGENT_IDS, AGENT_PRESETS, agentPresetValues } from './agent-presets.js';
 import { renderSetup } from './setup.js';
+import {createUpdateUI} from './updater.js';
 import { avatar as characterAvatar, sprite, CHARACTER_CATALOG, icon } from './sprites.js';
 import { officeMarkup } from './office.js';
 import { projectOffice, officeId } from './offices.js';
@@ -310,7 +311,7 @@ function shell() {
         <a class="brand" href="/" aria-label="PX Office 사무실"><span class="brand-symbol">${icon('office',24)}</span><span>PX<span class="brand-light"> OFFICE</span><small>PERSONAL AGENT WORKSPACE</small></span></a>
         <div class="workspace-tag"><i class="tiny-square"></i><b id="office-label">${esc(state.office.name)} 사무실</b> <span>v2.1</span></div>
         <div class="rail-label">WORKSPACE</div>
-        <nav aria-label="주 메뉴">${navItem('office','사무실','office')}${navItem('inbox','편지함','mail')}${navItem('tasks','작업 현황','tasks')}${navItem('logs','활동 기록','logs')}</nav>
+        <nav aria-label="주 메뉴">${navItem('office','사무실','office')}${navItem('inbox','편지함','mail')}${navItem('tasks','작업 현황','tasks')}${navItem('logs','활동 기록','logs')}<button class="nav-item app-update-button" data-action="app-update" aria-label="앱 업데이트">${icon('refresh')}<span>업데이트</span><small class="update-badge" data-update-badge hidden>새 버전</small></button></nav>
         <div class="rail-bottom"><button class="account-usage" data-action="usage-details" aria-label="구독 사용량과 초기화권 보기" title="구독 사용량과 초기화권"><span class="usage-heading">${icon('tasks',20)}<b>구독 사용량</b></span><span id="account-usage-content"></span></button><div class="owner"><span class="owner-avatar">B</span><div><b>사장님</b><span>이 사무실의 유일한 인간</span></div><span class="owner-crown">♛</span></div></div>
       </aside>
       <div class="workspace">
@@ -680,6 +681,7 @@ function computerDetails() {
   updateComputers();void refreshComputers();
 }
 
+const updates=createUpdateUI({modal,openModal,esc,beforeApply:async()=>{flushAgentForm();for(const entry of agentSaves.values()){while(entry.pending||entry.inflight)await flushAgentSave(entry.agentId,entry.officeId);if(entry.failed)throw Error('에이전트 설정 저장을 재시도한 뒤 업데이트해주세요.');}}});
 app.addEventListener('click', handleClick); modal.addEventListener('click', handleClick);
 async function handleClick(event) {
   const nav = event.target.closest('[data-view]');
@@ -690,6 +692,7 @@ async function handleClick(event) {
   const button = event.target.closest('[data-action]'); if(!button) return;
   const action=button.dataset.action, id=button.dataset.id;
   try {
+    if(action==='app-update'||action.startsWith('update-')){await updates.action(action==='app-update'?'status':action.slice(7));return;}
     if(action==='toggle-left-sidebar') { leftSidebarOpen=!leftSidebarOpen; localStorage.setItem('px-left-sidebar-open',String(leftSidebarOpen)); updateSidebar(); }
     if(action==='toggle-sidebar') { sidebarOpen=!sidebarOpen; localStorage.setItem('px-sidebar-open',String(sidebarOpen)); updateSidebar(); }
     if(action==='open-mailbox') openMailbox();
@@ -818,7 +821,7 @@ async function initialize() {
     const auth=await api('auth'); if(!auth.authenticated) {loginScreen();return;}
     rawState=await api('state');applyOffice();
     if(window.pxDesktop&&!rawState.settings.setupComplete){events?.close();setupCleanup=await renderSetup({app,api,onComplete:async chooseComputer=>{if(!chooseComputer){selectedComputerId='local';localStorage.setItem('px-target-computer','local');}await initialize();if(chooseComputer)computerDetails();}});return;}
-    void refreshAccountUsage();void refreshComputers(); seenReports=new Set((rawState.letters || []).map(letter=>letter.id)); shell();
+    void refreshAccountUsage();void refreshComputers(); seenReports=new Set((rawState.letters || []).map(letter=>letter.id)); shell();void updates.refresh().catch(()=>{});
     events?.close(); events=new EventSource('/api/events');
     events.onmessage=event=>{
       const next=JSON.parse(event.data);

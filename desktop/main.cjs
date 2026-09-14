@@ -4,6 +4,7 @@ const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
+const {createUpdater}=require('./updater.cjs');
 let window, backend, origin, stopping = false;
 const root = path.resolve(__dirname, '..');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -64,6 +65,21 @@ async function start() {
   const token=/(?:^|\s)px_session=([^;]+)/.exec(login.headers.get('set-cookie')||'')?.[1];
   if(!token)throw Error('앱의 사무실 연결을 인증하지 못했습니다.');
   await session.defaultSession.cookies.set({url:origin,name:'px_session',value:token,httpOnly:true,sameSite:'strict',path:'/'});
+  const installTarget=process.platform==='darwin'?path.dirname(path.dirname(path.dirname(process.execPath))):process.env.APPIMAGE||path.dirname(process.execPath);
+  let updateMode=process.platform==='darwin'?'mac':process.platform==='win32'?'windows':process.env.APPIMAGE?'appimage':'tar';
+  if(process.platform==='linux'&&!process.env.APPIMAGE){try{await require('node:fs').promises.access(path.dirname(installTarget),require('node:fs').constants.W_OK);}catch{updateMode='deb';}}
+  const updater=createUpdater({currentVersion:app.getVersion(),target:installTarget,mode:updateMode,dataDir:data,packaged:app.isPackaged,onStatus:state=>{if(window&&!window.webContents.isDestroyed())window.webContents.send('px:update-status',state);}});
+  await updater.restore();
+  const updateCall=(channel,handler)=>ipcMain.handle(channel,async event=>{if(event.sender!==window?.webContents||event.senderFrame!==window.webContents.mainFrame)throw Error('업데이트 요청을 인증하지 못했습니다.');return handler();});
+  const updateGate=async action=>{const response=await fetch(origin+'/api/update/'+action,{method:'POST',headers:{Cookie:`px_session=${token}`}});const result=await response.json();if(!response.ok)throw Error(result.error||'업데이트 준비에 실패했습니다.');};
+  updateCall('px:update-status',()=>updater.status());
+  updateCall('px:update-check',()=>updater.check());
+  updateCall('px:update-download',()=>updater.download());
+  updateCall('px:update-cancel',()=>updater.cancel());
+  let updateInstalling=false;
+  const applyUpdate=async manual=>{if(updateInstalling)throw Error('업데이트 설치를 준비 중입니다.');updateInstalling=true;let gated=false;try{await updateGate('prepare');gated=true;if(manual){const file=updater.file();if(!file||updater.status().status!=='ready')throw Error('다운로드를 먼저 완료해주세요.');const error=await shell.openPath(file);if(error)throw Error(error);}else{const state=await updater.install();setTimeout(()=>app.quit(),150);return state;}setTimeout(()=>app.quit(),150);}catch(error){if(gated)await updateGate('cancel');updateInstalling=false;throw error;}};
+  updateCall('px:update-open-file',()=>applyUpdate(true));
+  updateCall('px:update-install',()=>applyUpdate(false));
   ipcMain.handle('px:open-external',(event,url)=>{if(event.sender===window?.webContents)external(url);});
   ipcMain.handle('px:choose-folder',async event=>{if(event.sender!==window?.webContents)return null;const result=await dialog.showOpenDialog(window,{properties:['openDirectory'],title:'작업 시작 폴더 선택'});return result.canceled?null:result.filePaths[0];});
   await createWindow();
@@ -77,6 +93,8 @@ async function start() {
       if(!firstScreen)await delay(100);
     }
     if(!firstScreen)throw Error('첫 실행 계정 연결 화면을 확인하지 못했습니다.');
+    const updateInfo=await window.webContents.executeJavaScript('window.pxDesktop.updateStatus()');
+    if(updateInfo.currentVersion!==app.getVersion())throw Error('업데이트 IPC와 앱 버전을 확인하지 못했습니다.');
     console.log('PX_DESKTOP_SMOKE_OK');app.quit();
   }
 }

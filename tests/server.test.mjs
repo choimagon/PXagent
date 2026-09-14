@@ -12,7 +12,10 @@ const mockMessages = [];
 let goalReviews = [];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 async function start(extra={}) {
-  child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,OFFICE_EXECUTOR:'demo',HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,DEMO_STEP_MS:'40',LLM_BASE_URL:'',LLM_API_KEY:'',MODEL_HIGH:'',MODEL_BALANCED:'',MODEL_FAST:'',MODEL_LUNA:'',MODEL_TERRA:'',MODEL_SOL:'',MODEL_ASTRA:'',OFFICE_PASSWORD:'',...extra},stdio:['ignore','pipe','pipe']});
+  child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,OFFICE_EXECUTOR:'demo',HOST:'127.0.0.1',PORT:String(port),DATA_DIR:data,DEMO_STEP_MS:'40',LLM_BASE_URL:'',LLM_API_KEY:'',MODEL_HIGH:'',MODEL_BALANCED:'',MODEL_FAST:'',MODEL_LUNA:'',MODEL_TERRA:'',MODEL_SOL:'',MODEL_ASTRA:'',OFFICE_PASSWORD:'',...extra},stdio:['ignore','pipe','pipe','ipc']});
+  child.on('message',message=>{
+    if(message?.type==='secret-request')child.send({type:'secret-response',id:message.id,value:message.operation==='encrypt'?Buffer.from(message.value).toString('base64'):Buffer.from(message.value,'base64').toString('utf8')});
+  });
   let output=''; child.stderr.on('data',d=>{output+=d;});
   for(let i=0;i<400;i++) {
     if(child.exitCode!==null) throw new Error(`Server exited: ${output}`);
@@ -342,4 +345,21 @@ test('history previews isolate confirmed deletion and deleted mail stays deleted
   await stop();await start();assert.equal((await request('state')).data.letters.length,0);
   const logs=await request('history/preview','POST',{kind:'logs',range:'all'});
   await request('history/delete','POST',{token:logs.data.token});assert.equal((await request('state')).data.logs.length,0);
+});
+
+test('desktop update preparation rejects queued work and freezes new mutations until cancelled',async()=>{
+  assert.equal((await request('update/prepare','POST',{})).status,400);
+  await stop();await start({PX_DESKTOP:'1'});
+  await request('settings','PATCH',{paused:true});
+  const queued=await request('tasks','POST',{description:'update protection test',agentId:'misc'});
+  assert.equal(queued.status,201);
+  assert.equal((await request('update/prepare','POST',{})).status,409);
+  await request(`tasks/${queued.data.id}/stop`,'POST',{});await poll(queued.data.id,'stopped');
+  assert.equal((await request('update/prepare','POST',{})).status,200);
+  assert.equal((await request('state')).status,200);
+  assert.equal((await request('tasks','POST',{description:'must not start',agentId:'misc'})).status,409);
+  assert.equal((await request('agents/dev','PATCH',{name:'must not change'})).status,409);
+  assert.equal((await request('update/cancel','POST',{})).status,200);
+  const resumed=await request('tasks','POST',{description:'allowed after cancellation',agentId:'misc'});
+  assert.equal(resumed.status,201);await request(`tasks/${resumed.data.id}/stop`,'POST',{});
 });

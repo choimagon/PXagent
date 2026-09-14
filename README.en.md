@@ -2,7 +2,7 @@
 <h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>A pixel multi-agent office powered by your ChatGPT subscription</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.0-91b77a?style=flat-square" alt="Version 2.1.0"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.1-91b77a?style=flat-square" alt="Version 2.1.1"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
@@ -92,14 +92,20 @@ The app is installed to `~/.local/opt/pxagents` and registered in your applicati
 
 ```sh
 # Run in the directory containing your downloaded package
-sudo apt install ./PXagents-2.1.0-linux-x64.deb
+sudo apt install ./PXagents-2.1.1-linux-x64.deb
 # On ARM64, use this instead:
-# sudo apt install ./PXagents-2.1.0-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.1-linux-arm64.deb
 ```
 
 AppImage users may also need a FUSE 2 runtime. [All Linux downloads](https://github.com/choimagon/PXagent/releases/latest)
 
-> The shell installer checks SHA-256 hashes. To update, close the app and run the installation commands again. Unsigned or unnotarized releases may display Windows SmartScreen or macOS security prompts.
+> The shell installer checks SHA-256 hashes. Unsigned or unnotarized releases may display Windows SmartScreen or macOS security prompts.
+
+## Updates
+
+Click **업데이트 (Update)** in the left sidebar to check the latest stable GitHub release. Download it, then choose **업데이트 후 재시작 (Update and restart)**. The app selects your OS and CPU, verifies SHA-256, and replaces the application while preserving accounts, agent settings, mail, and task history. Finish or stop running and queued tasks and Goals first.
+
+For 2.1.0 or older, install 2.1.1 or newer over the existing app once to get the button; no uninstall is needed. Linux DEB updates require `pkexec` (PolicyKit) and administrator approval. If the application directory is not writable or PolicyKit is unavailable, use **설치파일 열기 (Open installer)** to install over the existing app. The web interface links to desktop downloads.
 
 ## Uninstallation
 
