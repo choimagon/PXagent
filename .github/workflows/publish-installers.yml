@@ -6,6 +6,10 @@ on:
         description: Successful Desktop installers run ID
         required: true
         type: string
+      repair_linux_x64:
+        description: Add Linux x64 DEB and AppImage to the existing release
+        type: boolean
+        default: false
 permissions:
   actions: read
   contents: write
@@ -41,6 +45,26 @@ jobs:
       - name: Publish complete installers and checksums
         run: |
           RELEASE_TAG="v$(node -p 'require("./package.json").version')"
+          if [ "${{ inputs.repair_linux_x64 }}" = "true" ]; then
+            app="PXagents-$(node -p 'require("./package.json").version')-linux-x64.AppImage"
+            deb="PXagents-$(node -p 'require("./package.json").version')-linux-x64.deb"
+            test -s "release-assets/$app"
+            test -s "release-assets/$deb"
+            mkdir existing-assets
+            gh release download "$RELEASE_TAG" --pattern SHA256SUMS --dir existing-assets
+            (cd release-assets && sha256sum "$app" "$deb") > linux-checksums
+            python3 - <<'PYTHON'
+          from pathlib import Path
+          checksums={}
+          for file in ['existing-assets/SHA256SUMS','linux-checksums']:
+              for line in Path(file).read_text().splitlines():
+                  digest,name=line.split(maxsplit=1)
+                  checksums[name.strip()]=digest
+          Path('release-assets/SHA256SUMS').write_text(''.join(f'{checksums[name]}  {name}\n' for name in sorted(checksums)))
+          PYTHON
+            gh release upload "$RELEASE_TAG" "release-assets/$app" "release-assets/$deb" release-assets/SHA256SUMS --clobber
+            exit 0
+          fi
           for file in PXagents-windows-x64.exe PXagents-windows-arm64.exe PXagents-mac-x64.zip PXagents-mac-arm64.zip PXagents-linux-x64.tar.gz PXagents-linux-arm64.tar.gz; do
             test -s "release-assets/$file"
           done
