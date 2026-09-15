@@ -1,12 +1,12 @@
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { access, realpath, stat, mkdir } from 'node:fs/promises';
+import { access, realpath, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
 const exec = promisify(execFile);
-export const CODEX_PERMISSIONS = Object.freeze({ sandboxMode: 'workspace-write', approvalPolicy: 'never' });
+export const CODEX_PERMISSIONS = Object.freeze({ sandboxMode: 'danger-full-access', approvalPolicy: 'never' });
 // Reuse Codex's own account storage; never copy tokens into the office app.
 export function codexEnvironment() {
   const allowed = ['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT', 'PATH', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'CODEX_HOME', 'ELECTRON_RUN_AS_NODE', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY'];
@@ -70,19 +70,16 @@ export function foldersOverlap(a, b) {
 
 export async function runCodex({ binary, directory, model, reasoningEffort, fastMode = false, prompt, signal, schema, extraEnv = {}, sandboxMode = CODEX_PERMISSIONS.sandboxMode, onEvent = () => {}, timeoutMs = 30 * 60_000, maxTokens }) {
   if (signal.aborted) throw signal.reason;
-  const args = ['exec', '--ignore-user-config', '--json', '--color', 'never', '--skip-git-repo-check', '--sandbox', sandboxMode, '-C', directory, '-m', model,
-    '-c', `approval_policy=${JSON.stringify(CODEX_PERMISSIONS.approvalPolicy)}`, '-c', 'forced_login_method="chatgpt"', '-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`];
+  // Load installed skills/plugins and their MCP dependencies from the user's Codex config.
+  // Office execution settings still override the corresponding user preferences.
+  const args = ['exec', '--json', '--color', 'never', '--skip-git-repo-check', '--sandbox', sandboxMode, '-C', directory, '-m', model,
+    '-c', 'model_provider="openai"', '-c', `approval_policy=${JSON.stringify(CODEX_PERMISSIONS.approvalPolicy)}`, '-c', 'forced_login_method="chatgpt"', '-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`];
   args.push('-c', `features.fast_mode=${fastMode}`, '-c', `service_tier=${fastMode ? '"fast"' : '"default"'}`);
-  let temporary;
-  if(sandboxMode==='workspace-write'){
-    args.push('-c','sandbox_workspace_write.network_access=true','-c','sandbox_workspace_write.writable_roots=[]','-c','sandbox_workspace_write.exclude_slash_tmp=true','-c','sandbox_workspace_write.exclude_tmpdir_env_var=true');
-    temporary=path.join(directory,'.px-runtime','tmp');await mkdir(temporary,{recursive:true});
-  }
   if (schema) args.push('--output-schema', schema);
   args.push('-');
   if (signal.aborted) throw signal.reason;
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { cwd: directory, env: { ...codexEnvironment(), ...(temporary?{TMPDIR:temporary,TEMP:temporary,TMP:temporary}:{}),...extraEnv }, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true });
+    const child = spawn(binary, args, { cwd: directory, env: { ...codexEnvironment(), ...extraEnv }, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true });
     let buffer = '', stderr = '', result = '', failure = '', threadId = null, usage = null, completed = false, stopReason, killTimer;
     let eventChain = Promise.resolve();
     function kill(force = false) {
@@ -109,7 +106,7 @@ export async function runCodex({ binary, directory, model, reasoningEffort, fast
     });
     child.stderr.setEncoding('utf8'); child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-16_000); });
     child.stdin.on('error', () => {});
-    child.stdin.end(prompt);
+    child.stdin.end(`${prompt}\n\n[SKILL USAGE]\n사용자가 $skill-name으로 지정한 설치된 Skill은 해당 SKILL.md를 읽고 적용하세요. 현재 요청에 맞는 설치된 Skill도 설명과 호출 정책에 따라 선택하세요. Skill의 scripts·references·assets 경로는 그 SKILL.md가 있는 폴더를 기준으로 해석하세요. 사용한 Skill과 실제 실행 결과를 보고하세요. 사용자가 지정한 실제 파일 경로와 수정 요청을 따르세요. 작업 폴더 밖의 파일도 요청에 필요하면 직접 읽고 수정할 수 있습니다. 연결 도구 실행이 실패하면 실제 오류를 보고하세요.`);
     child.on('error', error => { failure = error.code === 'ENOENT' ? 'Codex 실행 파일을 찾을 수 없습니다.' : 'Codex 프로세스를 시작할 수 없습니다.'; });
     child.on('close', async code => {
       if (stopReason) kill(true);

@@ -86,7 +86,7 @@ function speedButton(x, y, department) {
 }
 
 export function officeMarkup() {
-  return `<svg id="office-svg" viewBox="0 0 900 615" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-label="사장실, 개발부서, 논문부서, 잡다부서가 있는 픽셀 사무실">
+  return `<svg id="office-svg" viewBox="0 0 900 615" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-label="사장실, 개발부서, 문서 부서, 잡다부서가 있는 픽셀 사무실">
   <defs>
     <pattern id="wood" width="76" height="27" patternUnits="userSpaceOnUse"><path d="M0 26h76M38 0v26" stroke="#a29a7b" stroke-width="1" opacity=".45"/><path d="M5 6h19m27 9h17M9 20h21" stroke="#d3c6a1" opacity=".25"/></pattern>
     <pattern id="tiles" width="31" height="31" patternUnits="userSpaceOnUse"><path d="M0 30h31M30 0v31" stroke="#6e8682" stroke-width="1" opacity=".4"/><rect x="2" y="2" width="27" height="27" fill="#a4b0a3" opacity=".07"/></pattern>
@@ -100,7 +100,7 @@ export function officeMarkup() {
   ${room(527,302,345,277,'#596357','#717b69','stone')}
   ${rect(29,279,842,17,'#89907a')}${rect(414,27,19,246,'#89907a')}${rect(503,302,19,277,'#89907a')}
   <path d="M45 286h810" stroke="#a8ad91" stroke-width="1" stroke-dasharray="7 6"/>
-  ${plate(48,52,'사장실','THE BOSS ROOM')}${plate(459,52,'개발부서','DEVELOPMENT LAB')}${plate(48,329,'논문부서','DOCUMENT STUDIO')}${plate(547,329,'잡다부서','THE DARK SIDE','#d1d2b7')}
+  ${plate(48,52,'사장실','THE BOSS ROOM')}${plate(459,52,'개발부서','DEVELOPMENT LAB')}${plate(48,329,'문서 부서','DOCUMENT STUDIO')}${plate(547,329,'잡다부서','THE DARK SIDE','#d1d2b7')}
   ${fastScene('사장실',windowArt(302,59),'normal')}${fastScene('사장실',group(302,59,`${rect(0,0,88,56,'#9aa7a0')}${rect(4,4,80,45,'#202d50')}${rect(8,26,18,23,'#344060')}${rect(31,34,20,15,'#384563')}${rect(56,21,20,28,'#2b3957')}${rect(65,9,9,9,'#e8dfaf')}${rect(69,7,7,8,'#202d50')}${rect(15,11,2,2,'#d8e1d9')}${rect(32,18,2,2,'#d8e1d9')}${rect(51,9,2,2,'#d8e1d9')}${rect(42,3,4,49,'#dadbca')}${rect(3,25,82,4,'#dadbca')}${rect(-3,51,94,7,'#c8c9b7')}`))}<g data-department-shelf="사장실">${shelf(49,82,true)}</g>${fastScene('사장실',book(74,176,'#b2939e',-18)+book(103,183,'#819fa0',12)+book(120,244,'#a2af80',-9))}${plant(43,216)}
   <g data-secretary-furniture transform="translate(330 128) scale(.975)">${worker('secretary',0,0)}${desk(-24,50)}${monitor(-4,30,'blue')}${keyboard(-4,70)}</g>
   ${rect(130,133,139,99,'#a29a78')}${rect(134,137,131,91,'#c6bea0')}${rect(137,140,125,85,'#b5ad90')}
@@ -109,7 +109,7 @@ export function officeMarkup() {
   ${server(698,76)}${server(755,76)}${server(812,76)}${fastScene('개발부서',developmentCooling())}${plant(459,206)}
   ${rect(508,133,140,101,'#718a81')}${rect(512,136,132,95,'#7f958a')}
   ${workstation('autoresearch','dark','blue')}${workstation('dev','dark')}${workstation('junior','dark')}
-  <g data-department-shelf="논문부서">${shelf(50,350)}${shelf(380,350)}</g>${fastScene('논문부서',bookStack(65,467)+bookStack(103,489)+book(76,507,'#b5987e',14)+bookStack(390,465)+bookStack(433,487)+book(391,507,'#829ea2',-12))}${plant(49,505)}${plant(444,509)}
+  <g data-department-shelf="문서 부서">${shelf(50,350)}${shelf(380,350)}</g>${fastScene('문서 부서',bookStack(65,467)+bookStack(103,489)+book(76,507,'#b5987e',14)+bookStack(390,465)+bookStack(433,487)+book(391,507,'#829ea2',-12))}${plant(49,505)}${plant(444,509)}
   ${rect(141,407,210,115,'#afa27e')}${rect(145,411,202,107,'#c5bb99')}
   ${workstation('analyzer','wood','purple')}${workstation('writer','wood','amber')}${workstation('format')}${lamp(345,435)}
   ${rect(153,539,170,11,'#9c916e')}${rect(157,539,162,3,'#c9bd96')}${Array.from({length:7},(_,i)=>rect(164+i*20,527,16,12,['#9b9e79','#b69777','#839d97'][i%3])).join('')}
@@ -122,7 +122,7 @@ export function officeMarkup() {
   ${group(810,524,`${rect(0,13,20,18,'#434e42')}${rect(2,9,16,9,'#7b8266')}${rect(6,0,5,17,'#9d996e')}${rect(11,7,6,4,'#c3b985')}`)}
   ${rect(389,257,21,15,'#b8af88')}${rect(440,257,21,15,'#b8af88')}${rect(477,302,21,14,'#b8af88')}${rect(530,302,21,14,'#8d9679')}
   <text x="449" y="604" text-anchor="middle" fill="#a3ac94" font-family="monospace" font-size="12" letter-spacing="3">A LITTLE OFFICE. BIG IDEAS.</text>
-  ${speedButton(321,32,'사장실')}${speedButton(776,32,'개발부서')}${speedButton(404,308,'논문부서')}${speedButton(776,308,'잡다부서')}
+  ${speedButton(321,32,'사장실')}${speedButton(776,32,'개발부서')}${speedButton(404,308,'문서 부서')}${speedButton(776,308,'잡다부서')}
   <g id="office-nameplates">${Object.keys(positions).map(nameplate).join('')}</g>
   </svg>`;
 }

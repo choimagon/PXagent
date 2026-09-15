@@ -129,7 +129,7 @@ test('Codex subscription screen exposes workspace, live commands and login witho
   await page.getByRole('button',{name:'사무실 설정',exact:true}).first().click();
   await expect(page.locator('#executor')).toHaveValue('codex');await expect(page.locator('#codex-status')).toHaveText('ChatGPT 구독 로그인 연결됨');
   await expect(page.locator('#api-key')).not.toBeVisible();await expect(page.locator('#working-directory')).toBeVisible();
-  await expect(page.locator('#settings-form')).toContainText('격리된 프로젝트 폴더');
+  await expect(page.locator('#settings-form')).toContainText('지정한 실제 폴더에서 직접 작업해요');
   await page.screenshot({path:'test-results/codex-settings.png',fullPage:true});
 });
 
@@ -325,6 +325,36 @@ test('Tailscale device additions and name/IP changes appear automatically',async
 });
 
 
+test('office audio decodes the real recording and starts Fast work after a user gesture',async({page,request})=>{
+  const snapshot=await(await request.get('/api/state')).json();
+  snapshot.offices.local.agents=snapshot.agents;
+  snapshot.agents[0].status='running';snapshot.agents[0].phase='thinking';snapshot.agents[0].fastMode=true;
+  await page.route('**/api/state',route=>route.fulfill({json:snapshot}));
+  await page.addInitScript(()=>{
+    localStorage.removeItem('px-muted');
+    const NativeContext=window.AudioContext;
+    window.keyboardStarts=0;
+    window.AudioContext=function(){
+      const ctx=new NativeContext();window.keyboardContext=ctx;
+      const createSource=ctx.createBufferSource.bind(ctx);
+      ctx.createBufferSource=()=>{
+        const source=createSource(),start=source.start.bind(source);
+        source.start=(...args)=>{start(...args);window.keyboardStarts++;window.keyboardDuration=source.buffer.duration;};
+        return source;
+      };
+      return ctx;
+    };
+    window.EventSource=class {constructor(){window.officeEvents=this;}close(){}};
+  });
+  await page.goto('/');
+  await page.waitForFunction(()=>typeof window.officeEvents?.onmessage==='function');
+  await page.evaluate(snapshot=>window.officeEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
+  await page.locator('#office-view-heading').click();
+  await expect.poll(()=>page.evaluate(()=>window.keyboardStarts)).toBeGreaterThan(0);
+  expect(await page.evaluate(()=>window.keyboardContext.state)).toBe('running');
+  expect(await page.evaluate(()=>window.keyboardDuration)).toBeGreaterThan(1);
+});
+
 test('office audio plays typing only during work and louder report chimes, with persistent mute',async({page,request})=>{
   const snapshot=await(await request.get('/api/state')).json();
   snapshot.offices.local.agents=snapshot.agents;
@@ -350,6 +380,15 @@ test('office audio plays typing only during work and louder report chimes, with 
   await page.waitForFunction(()=>typeof window.officeEvents?.onmessage==='function');
   await page.evaluate(snapshot=>window.officeEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
   await expect.poll(()=>page.evaluate(()=>window.audioEvents.taps)).toBeGreaterThan(0);
+  // Fast work must keep typing through planning, analysis, verification and review.
+  snapshot.agents[0].fastMode=true;
+  const working=await page.evaluate(()=>window.audioEvents.taps);
+  for(const phase of ['thinking','analyzing','testing','reviewing','experimenting','coding']){
+    snapshot.agents[0].phase=phase;
+    await page.evaluate(snapshot=>window.officeEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
+    expect(await page.evaluate(()=>window.audioEvents.taps)).toBe(working);
+    expect(await page.evaluate(()=>window.audioEvents.stops)).toBe(0);
+  }
   await page.locator('.rail [data-view="logs"]').click();
   const paused=await page.evaluate(()=>window.audioEvents.taps);
   await page.waitForTimeout(1100);expect(await page.evaluate(()=>window.audioEvents.taps)).toBe(paused);expect(await page.evaluate(()=>window.audioEvents.stops)).toBeGreaterThan(0);
@@ -409,8 +448,7 @@ test('busy agents block assignment while idle coworkers and the secretary remain
   expect(payload.agentId).toBe('writer');expect(payload.requireIdle).toBe(true);
   await page.locator('#office-svg [data-agent="secretary"]').click();
   await expect(page.locator('#modal h2')).toHaveText('비둘기');
-  await expect(page.locator('#secretary-live')).toContainText('서버 개발 작업');
-  await expect(page.locator('#secretary-live')).toContainText('40%');
+  await expect(page.locator('#secretary-live')).toHaveCount(0);
   let question;
   await page.route('**/api/secretary',async route=>{question=route.request().postDataJSON().question;await route.fulfill({json:{answer:'사장님, 비둘기입니다. 서버 개발 작업을 개발노예가 진행 중입니다.',checkedAt:Date.now()}});});
   await page.getByRole('button',{name:'무슨 일 하고 있어?',exact:true}).click();
@@ -418,8 +456,7 @@ test('busy agents block assignment while idle coworkers and the secretary remain
   await expect(page.locator('#secretary-answer')).toContainText('개발노예');
   task.progress=75;task.lastActivity='테스트 실행 중';
   await page.evaluate(snapshot=>window.testEvents.onmessage({data:JSON.stringify(snapshot)}),snapshot);
-  await expect(page.locator('#secretary-live')).toContainText('75%');
-  await expect(page.locator('#secretary-live')).toContainText('테스트 실행 중');
+  await expect(page.locator('#secretary-live')).toHaveCount(0);
   await page.locator('#secretary-question').fill('진행 상황 어때?');
   await page.locator('#secretary-form').getByRole('button',{name:'물어보기',exact:true}).click();
   await expect.poll(()=>question).toBe('진행 상황 어때?');
@@ -440,7 +477,8 @@ test('nameplates stay in front with equal size and secretary model controls pers
   await expect(page.locator('#model-secretary')).toHaveValue('luna');
   await expect(page.locator('#secretary-reasoning')).toBeDisabled();
   await expect(page.locator('#secretary-reasoning')).toHaveValue('medium');
-  await expect(page.locator('.secretary-model-settings')).toContainText('호문클루스가 배정하거나 제어할 수 없어요');
+  await expect(page.locator('.secretary-model-settings .field-hint')).toHaveCount(0);
+  await expect(page.locator('#secretary-save-status')).toBeHidden();
   await page.locator('#modal [data-action="close-modal"]').click();
   await page.reload();
   await page.locator('[data-nameplate="secretary"]').click();
@@ -494,7 +532,7 @@ test('computer switching opens separate offices with independent agents, mailbox
   let query;
   await page.route('**/api/secretary',async route=>{query=route.request().postDataJSON();await route.fulfill({json:{answer:'이 사무실의 원격 개발 작업은 진행 중입니다.'}});});
   await page.locator('#office-svg [data-agent="secretary"]').click();
-  await expect(page.locator('#secretary-live')).toContainText('다른 컴퓨터 개발 작업');await expect(page.locator('#secretary-live')).not.toContainText('내 컴퓨터 개발 작업');
+  await expect(page.locator('#secretary-live')).toHaveCount(0);
   await page.getByRole('button',{name:'진행 상황 어때?',exact:true}).click();await expect(page.locator('#secretary-answer')).toContainText('원격 개발');expect(query.officeId).toBe('office-peer');
 });
 
@@ -634,12 +672,14 @@ test('department Fast buttons toggle independently and persist', async ({page}) 
   await page.goto('/');
   const buttons=page.locator('.department-speed');
   await expect(buttons).toHaveCount(4);
+  await expect(page.locator('#office-svg')).toContainText('문서 부서');
+  await expect(page.locator('#office-svg')).not.toContainText('논문부서');
   const dev=page.getByRole('button',{name:'개발부서 Fast 모드',exact:true});
   await expect(dev).toHaveText('Normal');
   await dev.click();
   await expect(dev).toHaveText('Fast');
   await expect(dev).toHaveAttribute('aria-pressed','true');
-  await expect(page.getByRole('button',{name:'논문부서 Fast 모드',exact:true})).toHaveText('Normal');
+  await expect(page.getByRole('button',{name:'문서 부서 Fast 모드',exact:true})).toHaveText('Normal');
   await page.reload();
   await expect(dev).toHaveText('Fast');
   await dev.click();
@@ -651,7 +691,7 @@ test('department Fast buttons toggle independently and persist', async ({page}) 
 
 test('Fast changes each department scene and Normal restores it', async ({page}) => {
   await page.goto('/');
-  for(const department of ['사장실','개발부서','논문부서','잡다부서']) {
+  for(const department of ['사장실','개발부서','문서 부서','잡다부서']) {
     const button=page.getByRole('button',{name:department+' Fast 모드',exact:true});
     const scene=page.locator(`[data-department-scene="${department}"][data-scene-mode="fast"]`);
     for(const item of await scene.all()) await expect(item).toBeHidden();
@@ -662,7 +702,7 @@ test('Fast changes each department scene and Normal restores it', async ({page})
   for(const flame of await page.locator('[data-fast-flame]').all()) await expect(flame).toBeVisible();
   await expect(page.locator('[data-department-sign]')).toHaveAttribute('transform','rotate(5 780 366)');
   await page.screenshot({path:'test-results/office-fast-scenes.png',fullPage:true});
-  for(const department of ['사장실','개발부서','논문부서','잡다부서']) {
+  for(const department of ['사장실','개발부서','문서 부서','잡다부서']) {
     await page.getByRole('button',{name:department+' Fast 모드',exact:true}).click();
     for(const item of await page.locator(`[data-department-scene="${department}"][data-scene-mode="fast"]`).all()) await expect(item).toBeHidden();
   }

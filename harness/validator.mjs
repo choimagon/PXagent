@@ -11,6 +11,27 @@ export function allowedFile(file,scope,allowedFiles=[]) {
 export async function validateWorkspace({workspace,signal,commands=[],requireTests=false,maxFiles=100,allowedFiles=[]}) {
   const checks=[],changes=await workspace.changes();
   const record=(name,result)=>checks.push({name,passed:result.exitCode===0,exitCode:result.exitCode,output:(result.stdout+'\n'+result.stderr).slice(-6000)});
+  if(workspace.direct){
+    for(const file of changes.filter(file=>/\.(mjs|cjs|js|py)$/.test(file))){
+      if(workspace.remote){
+        const command=file.endsWith('.py')?`python3 -I -S -c ${q('import ast,pathlib,sys; ast.parse(pathlib.Path(sys.argv[1]).read_text())')} ${q(file)}`:`node --check ${q(file)}`;
+        record('syntax: '+file,await workspace.run(`if [ -f ${q(file)} ]; then ${command}; fi`));
+      }else{
+        try{await readFile(file);}catch(error){if(error.code==='ENOENT')continue;throw error;}
+        const command=file.endsWith('.py')?'python3':process.execPath;
+        const args=file.endsWith('.py')?['-I','-S','-c','import ast,pathlib,sys; ast.parse(pathlib.Path(sys.argv[1]).read_text())',file]:['--check',file];
+        try{record('syntax: '+file,await runCommand({command,args,directory:workspace.workDirectory,signal}));}catch(error){if(signal?.aborted)throw error;checks.push({name:'syntax: '+file,passed:false,error:error.message});}
+      }
+    }
+    let project={};try{project=workspace.remote?JSON.parse((await workspace.run('cat package.json')).stdout):JSON.parse(await readFile(path.join(workspace.workDirectory,'package.json'),'utf8'));}catch{}
+    const selected=commands.length?commands:Object.keys(project.scripts||{}).filter(name=>['lint','test','test:unit','test:integration','build'].includes(name)).map(name=>`npm run ${name}`);
+    for(const command of selected){
+      if(typeof command!=='string'||!command.trim()||command.length>8000)throw Error('검증 명령이 올바르지 않습니다.');
+      try{record(command,await workspace.run(command,signal,180000));}catch(error){if(signal?.aborted)throw error;checks.push({name:command,passed:false,error:error.message});}
+    }
+    if(requireTests&&!selected.length)checks.push({name:'실제 테스트 명령',passed:false});
+    return {status:checks.every(check=>check.passed)?'PASS':'FAIL',checks,changedFiles:await workspace.changes(),direct:true,checkedAt:Date.now()};
+  }
   const scope=workspace.scope.replaceAll(path.sep,'/');
   checks.push({name:'변경 파일 범위',passed:changes.length<=maxFiles&&changes.every(file=>allowedFile(file,scope,allowedFiles)),files:changes});
   if(!checks[0].passed)return {status:'FAIL',checks,changedFiles:changes};

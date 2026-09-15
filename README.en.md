@@ -2,7 +2,7 @@
 <h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>A pixel multi-agent office powered by your ChatGPT subscription</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.2-91b77a?style=flat-square" alt="Version 2.1.2"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.3-91b77a?style=flat-square" alt="Version 2.1.3"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
@@ -92,9 +92,9 @@ The app is installed to `~/.local/opt/pxagents` and registered in your applicati
 
 ```sh
 # Run in the directory containing your downloaded package
-sudo apt install ./PXagents-2.1.2-linux-x64.deb
+sudo apt install ./PXagents-2.1.3-linux-x64.deb
 # On ARM64, use this instead:
-# sudo apt install ./PXagents-2.1.2-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.3-linux-arm64.deb
 ```
 
 AppImage users may also need a FUSE 2 runtime. [All Linux downloads](https://github.com/choimagon/PXagent/releases/latest)
@@ -196,13 +196,13 @@ Ask the secretary what is happening to receive an answer based on real tasks and
 
 ### Planning, validation, and experiments
 
-Homunculus decomposes requests into a dependency graph, runs independent specialists in parallel, and replans failed work. **분석이** reads and analyzes documents; **Writer** writes; **Formatter** preserves facts while arranging styles and submission formats. The document department retains its original Korean room label. The development lead chooses direct implementation, junior delegation, or the independent **카파시 AutoResearch** agent. Task-specific prompts load only allowed skills from the 21-entry registry.
+Homunculus decomposes requests into a dependency graph, runs independent specialists in parallel, and replans failed work. **분석이** reads and analyzes documents; **Writer** writes; **Formatter** preserves facts while arranging styles and submission formats. The room is labeled 문서 부서 (Document Department). The development lead chooses direct implementation, junior delegation, or the independent **카파시 AutoResearch** agent. Task-specific prompts load only allowed skills from the 21-entry registry.
 
-Codex implementation uses isolated Git worktrees, or snapshots for non-Git projects. Actual diff/scope checks, JavaScript/Python syntax checks, and available project lint/test/integration/build scripts must pass before review and integration. Existing user changes remain intact. Select a real project directory; a non-Git home directory or filesystem root cannot be used for isolated implementation. Git and your project's runtime/dependencies are required for these checks. Demo and API text-only responses are visibly distinguished from actual execution.
+Codex works directly in the selected directory with full file access, including requested files outside that directory. Edits take effect immediately; there is no isolated worktree, integration step, or automatic rollback. JavaScript/Python syntax checks and available project checks validate the reported changes. Demo and API text-only responses are visibly distinguished from actual execution.
 
-AutoResearch runs in **local Git projects only**, with fixed executable tests and a measurement command that returns a final JSON line `{"metric": number}`. Better candidates are preserved; worse or failing changes are rolled back. Fixed test and measurement files cannot be edited to inflate results. Maximum limits are **5 iterations, 10 minutes, 20,000 reported tokens, and 10 changed files**; lower limits and validation commands can be set in the assignment dialog. Token usage is checked after each Codex turn, so one in-flight turn can exceed the budget; its changes are discarded. This is not a monetary billing cap. The developer reviews the best result before integration.
+The development lead handles experiment requests directly in the selected workspace. Reported edits remain in place, including when validation fails; no isolated experiment or automatic rollback is created.
 
-DOCX/PPTX text extraction needs Python 3. PDF extraction needs Poppler (`pdftotext`) or Python 3 with PyMuPDF/pypdf. Put the executables on PATH, including on Windows. PDF pages and embedded Word/PPT images can be extracted into a separate analysis cache for actual image-tool review. PDF rendering needs Poppler (`pdftoppm`) or PyMuPDF. Scanned PDFs need OCR; figures and equations require visual review. These limitations are included in analysis results. Remote SSH Git workspaces run serially; a fallback without Git records its isolation limitations. Remote AutoResearch is disabled because remote OS write boundaries cannot be enforced.
+DOCX/PPTX text extraction needs Python 3. PDF extraction needs Poppler (`pdftotext`) or Python 3 with PyMuPDF/pypdf. Put the executables on PATH, including on Windows. PDF pages and embedded Word/PPT images can be extracted into a separate analysis cache for actual image-tool review. PDF rendering needs Poppler (`pdftoppm`) or PyMuPDF. Scanned PDFs need OCR; figures and equations require visual review. These limitations are included in analysis results. Remote SSH work runs directly in the selected remote directory.
 
 Persisted events drive pixel typing, testing, reviewing, document analysis, and experiment states. Task details expose dependencies, skills, actual validation records, hypotheses, metrics, and acceptance/discard history.
 

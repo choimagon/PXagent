@@ -10,6 +10,8 @@ const plannerRules=`[PLANNING_GRAPH]
 dev=개발부 기술 판단·구현, junior=가벼운 개발, analyzer=논문/PDF/DOCX/PPTX/MD/TXT/CSV/일반 파일 읽기·분석, writer=작성, format=형식, misc=잡무.
 분석만: analyzer. 분석 후 작성: analyzer→writer. 형식까지: analyzer→writer→format. 독립 작업만 dependsOn=[]로 병렬 배정하세요. 같은 결과를 소비하는 작업에는 의존성을 지정하세요.
 AutoResearch는 개발 팀장이 실제 코드와 metric을 확인해 선택합니다. 총괄은 autoresearch나 secretary에 직접 작업을 배정하지 마세요.
+내장 Skill은 아래 담당자별 목록에서만 skills에 지정하세요. 사용자 설치 Skill이나 플러그인 Skill은 instruction에 $skill-name 호출과 요구사항을 그대로 전달하세요. 전문 담당자는 자기 세션에서 해당 Skill을 읽고 적용합니다.
+${Object.entries(AGENT_CAPABILITIES).filter(([id])=>['dev','junior','analyzer','writer','format','misc'].includes(id)).map(([id,capability])=>`${id}: ${capability.availableSkills.join(', ')}`).join('\n')}
 재계획에서는 완료한 기존 작업 ID를 dependsOn으로 참조할 수 있습니다. 완료한 ID를 새 작업 ID로 재사용하지 마세요.
 JSON만 반환: {"summary":"설명","tasks":[{"id":"T1","agentId":"dev","skills":["backend","testing"],"instruction":"정확한 작업과 검증 요구","dependsOn":[]}]}. 1~24개 작업, 고유 ID, 순환 없는 의존성.`;
 export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,releaseAgent:unreserveAgent,emit,signal,wait,createSession,onUpdate=async()=>{}}) {
@@ -47,13 +49,14 @@ export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,relea
     let request=`원래 요청: ${content}\n\n담당 작업: ${node.instruction}\n\n선행 작업의 실제 결과:\n${dependencyContext}`;
     node.phase='thinking';await useAgent(agent.id,node.id);await event('task.assigned',agent.id,node.id);await event('agent.started',agent.id,node.id);
     try {
-      if(task.runMode==='codex'&&agent.id!=='analyzer'){workspace=await (await getSession()).create(`${node.id}_${node.attempt}`);node.workspace={directory:workspace.workDirectory,isolated:workspace.git||!workspace.remote};await event('workspace.created',agent.id,node.id,node.workspace);}
+      if(task.runMode==='codex'&&agent.id!=='analyzer'){workspace=await (await getSession()).create(`${node.id}_${node.attempt}`);node.workspace={directory:workspace.workDirectory,isolated:!workspace.direct&&(workspace.git||!workspace.remote),direct:workspace.direct===true};await event('workspace.created',agent.id,node.id,node.workspace);}
       if(agent.id==='analyzer'&&session)workspace=session;
       if(agent.id==='dev') {
         await event('agent.thinking',agent.id,node.id);
-        const text=task.runMode==='demo'?JSON.stringify({method:localPlan(content).tasks[0]?.agentId==='junior'?'junior':'direct',instruction:node.instruction}):await ask(agent,`[DEVELOPMENT_METHOD]\n먼저 실제 코드와 문제를 확인한 다음 direct/junior/autoresearch를 판단하세요. 단순 버그·UI 색상·오타·API 하나·리팩터링·파일 이동은 direct 또는 junior입니다. 여러 구현·알고리즘·하이퍼파라미터를 반복 비교하고 실제 objective metric과 자동 실행이 가능할 때만 autoresearch입니다.\nJSON만: {"method":"direct 또는 junior 또는 autoresearch","instruction":"수행 지시","research":null 또는 {"metricCommand":"실제 측정 후 JSON {metric:숫자} 출력 명령","direction":"minimize 또는 maximize","maxIterations":5,"maxMinutes":10,"maxTokens":20000,"maxFiles":10,"allowedFiles":["수정할 상대 파일"],"validationCommands":["실제 테스트 명령"]}}`,request,{phase:'개발 방법 판단',readOnly:true,workspace,node,skills:node.skills});
+        const text=task.runMode==='demo'?JSON.stringify({method:localPlan(content).tasks[0]?.agentId==='junior'?'junior':'direct',instruction:node.instruction}):await ask(agent,`[DEVELOPMENT_METHOD]\n${workspace?.direct?'현재는 실제 경로에서 직접 실행합니다. direct 또는 junior를 선택하고 research=null을 반환하세요. 별도 격리 실험은 사용하지 않습니다.':''}\n먼저 실제 코드와 문제를 확인한 다음 direct/junior/autoresearch를 판단하세요. 단순 버그·UI 색상·오타·API 하나·리팩터링·파일 이동은 direct 또는 junior입니다. 여러 구현·알고리즘·하이퍼파라미터를 반복 비교하고 실제 objective metric과 자동 실행이 가능할 때만 autoresearch입니다.\nJSON만: {"method":"direct 또는 junior 또는 autoresearch","instruction":"수행 지시","research":null 또는 {"metricCommand":"실제 측정 후 JSON {metric:숫자} 출력 명령","direction":"minimize 또는 maximize","maxIterations":5,"maxMinutes":10,"maxTokens":20000,"maxFiles":10,"allowedFiles":["수정할 상대 파일"],"validationCommands":["실제 테스트 명령"]}}`,request,{phase:'개발 방법 판단',readOnly:true,workspace,node,skills:node.skills});
         let method;try{method=parseJSON(text);}catch{method={method:'direct',instruction:node.instruction};}
         if(!['direct','junior','autoresearch'].includes(method.method)||typeof method.instruction!=='string'||!method.instruction.trim())throw Error('개발 팀장 판단이 올바르지 않습니다.');
+        if(method.method==='autoresearch'&&workspace?.direct){method.method='direct';method.instruction+=' 실제 파일에서 직접 개선하고 검증하세요. 격리 실험 엔진과 자동 rollback은 사용하지 않습니다.';}
         node.developmentMethod=method.method;
         request+=`\n개발 팀장 지시: ${method.instruction}`;
         if(method.method==='junior'){releaseAgent('dev',node.id);agent=agents.find(agent=>agent.id==='junior');await useAgent(agent.id,node.id);await event('agent.assigned',agent.id,node.id);}
@@ -77,7 +80,7 @@ export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,relea
         node.validationAttempt=attempt;
         await event(agent.id==='analyzer'?'document.analysis.started':'agent.coding',agent.id,node.id);
         if(task.runMode==='demo'){for(const label of ['요청 내용 확인','작업 진행','결과 정리']){await wait();await event('agent.thinking',agent.id,node.id,{message:`${agent.name} · ${label} (데모)`});}result=`[데모 결과]\n담당: ${agent.name} (${agent.department})\n요청: ${node.instruction}\n작업 배정·검수·보고 흐름만 확인했습니다. 실제 AI 실행·파일 생성·테스트 통과 결과가 아닙니다.`;}
-        else result=await ask(agent,'요청을 실제 수행하고 결과와 근거를 한국어로 보고하세요. Analyzer는 원본 수정 없이 JSON {documentType,summary,keyClaims:[문자열],methods:[문자열],results:[문자열],findings:[{topic,claim,evidence,source,locator}],sources:[문서 절대 경로 또는 user-request],tables:[문자열],figures:[문자열],equations:[문자열],limitations:[문자열]}로 분석하세요. 확인한 파일·페이지·절 근거를 포함하세요. 확인 못한 이미지와 수식은 limitations에 명시하세요.',request+(feedback?'\n[VALIDATOR_REWORK]\n'+feedback:''),{phase:'담당 작업',workspace,node,readOnly:agent.id==='analyzer',skills:node.skills});
+        else result=await ask(agent,'요청을 실제 수행하고 결과와 근거를 한국어로 보고하세요. Analyzer는 원본 수정 없이 JSON {documentType,summary,keyClaims:[문자열],methods:[문자열],results:[문자열],findings:[{topic,claim,evidence,source,locator}],sources:[파일·폴더 절대 경로 또는 정확히 user-request],tables:[문자열],figures:[문자열],equations:[문자열],limitations:[문자열]}로 분석하세요. 확인한 파일·페이지·절 근거를 포함하세요. 확인 못한 이미지와 수식은 limitations에 명시하세요.',request+(feedback?'\n[VALIDATOR_REWORK]\n'+feedback:''),{phase:'담당 작업',workspace,node,readOnly:agent.id==='analyzer',skills:node.skills.filter(skill=>AGENT_CAPABILITIES[agent.id].availableSkills.includes(skill))});
         node.workerResult=result;
         if(agent.id==='analyzer'){
           const checks=[{name:'읽기·분석 결과',passed:!!result.trim()}];
@@ -85,7 +88,7 @@ export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,relea
             node.analysis=parseJSON(result);const analysis=node.analysis;
             checks.push({name:'구조화된 주장·근거·한계',passed:typeof analysis.summary==='string'&&!!analysis.summary.trim()&&['findings','sources','tables','figures','equations','limitations'].every(key=>Array.isArray(analysis[key]))});
             if(!checks.at(-1).passed)throw Error('Analyzer의 구조화된 분석 형식이 올바르지 않습니다.');
-            for(const source of analysis.sources){if(source==='user-request')continue;let exists=false;if(task.machineId)exists=true;else try{exists=(await stat(path.resolve(workspace?.workDirectory||task.workingDirectory,source))).isFile();}catch{}checks.push({name:'분석 원본: '+source,passed:exists});}
+            for(const source of analysis.sources){if(source==='user-request'||source.startsWith('user-request:'))continue;let exists=false;if(task.machineId)exists=true;else try{const info=await stat(path.resolve(workspace?.workDirectory||task.workingDirectory,source));exists=info.isFile()||info.isDirectory();}catch{}checks.push({name:'분석 원본: '+source,passed:exists});}
           }
           node.validation={status:task.runMode==='codex'?(checks.every(check=>check.passed)?'PASS':'FAIL'):task.runMode==='demo'?'SIMULATED':'TEXT_ONLY',checks};if(node.validation.status==='FAIL')throw Error('Analyzer 근거 검증 실패');await event('document.analysis.completed',agent.id,node.id);break;
         }
@@ -97,7 +100,7 @@ export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,relea
         if(workspace&&task.agentId!=='chief'&&agent.id!=='junior'){releaseAgent(agent.id,node.id);const reviewer=['dev','autoresearch'].includes(agent.id)?lead:chief;const reviewed=await review(reviewer,node,result,workspace,reviewer.id==='dev'?'개발 팀장 검토':'검토 및 보고');node.review={agentId:reviewer.id,...reviewed};if(!reviewed.approved){feedback=reviewed.nextInstruction;if(attempt===2)throw Error(feedback);await useAgent(agent.id,node.id);continue;}}
         break;
       }
-      if(workspace&&agent.id!=='analyzer'){node.changedFiles=await workspace.changes();node.diff=workspace.diff?await workspace.diff():null;await (await getSession()).merge(workspace);node.commit=workspace.commit||null;await event('workspace.merged',agent.id,node.id);}
+      if(workspace&&agent.id!=='analyzer'){node.changedFiles=await workspace.changes();node.diff=workspace.diff?await workspace.diff():null;node.commit=workspace.commit||null;if(!workspace.direct){await (await getSession()).merge(workspace);await event('workspace.merged',agent.id,node.id);}}
       return result;
     }finally{releaseAgent(agent.id,node.id);releaseAgent('dev',node.id);}
   };
@@ -111,7 +114,7 @@ export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,relea
       }});
       task.workerResult=result;
       task.validation=session?await validateWorkspace({workspace:session,signal,commands:task.validationCommands||[]}):{status:task.runMode==='demo'?'SIMULATED':task.runMode==='api'?'TEXT_ONLY':'PASS',checks:task.graph.tasks.flatMap(node=>node.validation?.checks||[])};
-      if(task.validation.status==='FAIL')throw Error('통합 Validator FAIL: 원본에 반영하지 않았습니다.');
+      if(task.validation.status==='FAIL')throw Error(session?.direct?'Validator FAIL: 변경은 실제 파일에 적용된 상태입니다. 검증 오류를 확인해주세요.':'통합 Validator FAIL: 원본에 반영하지 않았습니다.');
       if(task.agentId!=='chief')break;
       task.status='reviewing';task.progress=90;await onUpdate();
       const reviewed=await review(chief,null,result,session,'검토 및 보고');task.finalReview=reviewed;
@@ -120,7 +123,7 @@ export async function runOfficeTask({task,agents,ask,useAgent:reserveAgent,relea
       const next=await plan(`${reviewed.nextInstruction}\n이미 검증된 결과: ${result}`),prefix=`TF${finalRound+1}_`;
       task.graph.tasks.push(...next.tasks.map(node=>({...node,id:prefix+node.id,dependsOn:node.dependsOn.map(id=>next.tasks.some(item=>item.id===id)?prefix+id:id)})));await event('task.replanned','chief',null);task.status='running';
     }
-    if(session){task.mergedFiles=await session.integrate();await event('workspace.merged',task.agentId,null,{files:task.mergedFiles});}
+    if(session){task.executionMode=session.direct?'direct':'isolated';task.mergedFiles=session.direct?await session.changes():await session.integrate();if(!session.direct)await event('workspace.merged',task.agentId,null,{files:task.mergedFiles});}
     return result;
   }finally{if(session)await session.dispose();}
 }

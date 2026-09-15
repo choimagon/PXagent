@@ -2,7 +2,7 @@
 <h1 align="center">PXagents 2.1</h1>
 <p align="center"><b>내 ChatGPT 구독으로 운영하는 픽셀 멀티에이전트 사무실</b></p>
 <p align="center">
-  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.2-91b77a?style=flat-square" alt="버전 2.1.2"></a>
+  <a href="https://github.com/choimagon/PXagent/releases/latest"><img src="https://img.shields.io/badge/version-2.1.3-91b77a?style=flat-square" alt="버전 2.1.3"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-546b49?style=flat-square" alt="Windows, macOS, Linux">
   <img src="https://img.shields.io/badge/CPU-x64%20%C2%B7%20ARM64-546b49?style=flat-square" alt="x64, ARM64">
 </p>
@@ -97,9 +97,9 @@ sh /tmp/pxagents-install.sh i
 
 ```sh
 # 다운로드한 파일이 있는 폴더에서 실행
-sudo apt install ./PXagents-2.1.2-linux-x64.deb
+sudo apt install ./PXagents-2.1.3-linux-x64.deb
 # ARM64 시스템은 대신 다음 파일 사용
-# sudo apt install ./PXagents-2.1.2-linux-arm64.deb
+# sudo apt install ./PXagents-2.1.3-linux-arm64.deb
 ```
 
 AppImage를 선택한 경우 FUSE 2 런타임이 추가로 필요할 수 있습니다. [모든 Linux 설치파일](https://github.com/choimagon/PXagent/releases/latest)
@@ -205,13 +205,13 @@ Fast는 지원 모델의 응답을 빠르게 처리하는 대신 구독 사용�
 
 호문클루스는 요청을 최대 24개 작업으로 분해하고 `dependsOn`으로 실행 순서를 정합니다. 선행 작업이 검증된 뒤 그 결과를 다음 담당자에게 전달하며, 독립 작업은 서로 다른 담당자 최대 3명까지 병렬 실행합니다. 같은 담당자의 호출은 직렬로 처리합니다. 실패하면 완료한 작업은 유지하고 남은 작업만 최대 2회 재계획합니다.
 
-Agent의 역할과 전문 Skill을 분리했습니다. React·Python·C++·Git·디버깅·테스트·PDF·논문·통계·LaTeX 등 **21개 Skill** 중 담당자에게 허용되고 해당 작업에 필요한 지침만 동적으로 붙입니다. 작업 상세창에서 담당자·의존성·Skill·검증 결과를 확인할 수 있습니다.
+Agent의 역할과 전문 Skill을 분리했습니다. React·Python·C++·Git·디버깅·테스트·PDF·논문·통계·LaTeX 등 **21개 Skill** 중 담당자에게 허용된 지침을 전달하고, 담당자가 현재 작업에 필요한 Skill을 선택해 적용합니다. 작업 상세창에서 담당자·의존성·Skill·검증 결과를 확인할 수 있습니다. 직접 담당자를 선택해도 해당 역할의 내장 Skill 지침이 전달되어 필요한 Skill을 사용할 수 있습니다.
 
-Codex 구현 작업은 **Git worktree**에 격리하고, Git이 없는 프로젝트는 파일 스냅샷으로 분리합니다. 선택한 프로젝트 폴더 안에서만 쓰도록 Codex 샌드박스를 적용합니다. 기존의 미커밋 변경은 복사하고, 실패 작업은 원본에 반영하지 않습니다. Validator는 실제 diff·변경 범위·JavaScript/Python 구문 검사와 프로젝트의 lint·test·integration·build 스크립트를 실행합니다. 작업 배정창의 **검증 · 실험 제한**에서 직접 검증 명령도 지정할 수 있습니다. 실패하면 재작업하며, 검증·검수를 통과한 결과만 원본 작업 트리에 반영합니다. 원본 Git 브랜치에 자동 커밋하거나 기존 변경을 덮어쓰지 않습니다.
+Codex 실행은 실행 PC의 개인 설정을 로드하므로 설치하고 활성화한 개인 Skill·플러그인과 연결된 MCP 도구도 사용할 수 있습니다. 작업에 `$skill-name`을 넣으면 총괄이 담당자에게 호출을 전달합니다. 연결 도구는 같은 실행 PC의 Codex 설정과 인증이 필요합니다. 앱에서 지정한 모델·ChatGPT 로그인·단계별 샌드박스·승인 정책은 계속 적용됩니다.
 
-**프로젝트 폴더를 선택하세요.** 홈 폴더 전체나 디스크 루트는 Git이 없는 구현 작업의 격리 대상으로 사용할 수 없습니다. Git worktree 기능에는 Git, 실제 프로젝트 검증에는 그 프로젝트의 런타임·의존성이 필요합니다. 데모는 `SIMULATED`, API 텍스트 모드는 `TEXT_ONLY`로 표시하며 실제 파일·테스트 실행 결과로 취급하지 않습니다.
+Codex 작업은 지정한 실제 폴더에서 직접 실행합니다. 파일 접근은 **전체 접근(`danger-full-access`)**이며, 홈 폴더와 작업 폴더 밖의 파일도 요청에 필요하면 읽고 수정할 수 있습니다. Git worktree·파일 스냅샷·원본 반영 절차를 사용하지 않습니다. 변경은 즉시 실제 파일에 적용되고 자동 rollback하지 않습니다. Codex가 보고한 변경 파일의 구문과 프로젝트 검증 명령은 실제 경로에서 확인합니다. 작업 배정창에서 검증 명령을 직접 지정할 수도 있습니다. 격리 실험 엔진 대신 개발 담당자가 실제 파일에서 개선과 검증을 수행합니다. 데모는 `SIMULATED`, API 텍스트 모드는 `TEXT_ONLY`로 표시하며 실제 파일 실행 결과로 취급하지 않습니다.
 
-문서 reader는 원본을 수정하지 않고 텍스트와 페이지·슬라이드 근거를 반환합니다. DOCX/PPTX에는 **Python 3**, PDF에는 **Poppler의 `pdftotext` 또는 Python 3 + PyMuPDF/pypdf**가 필요합니다. Windows는 Python·Git·Poppler 실행 파일을 PATH에 등록하고, macOS/Linux도 해당 도구를 설치하세요. 스캔 PDF는 OCR, PDF 페이지와 Word/PPT 내장 이미지는 분석 전용 임시 폴더에 추출해 이미지 보기 도구로 확인합니다. PDF 이미지 추출에는 Poppler의 `pdftoppm` 또는 PyMuPDF가 필요합니다. 원본 문서는 보존하며, 이미지·그림·수식 중 확인하지 못한 내용은 분석 한계에 기록합니다.
+문서 reader는 원본을 수정하지 않고 텍스트와 페이지·슬라이드 근거를 반환합니다. DOCX/PPTX에는 **Python 3**, PDF에는 **Poppler의 `pdftotext` 또는 Python 3 + PyMuPDF/pypdf**가 필요합니다. Windows는 Python·Git·Poppler 실행 파일을 PATH에 등록하고, macOS/Linux도 해당 도구를 설치하세요. 스캔 PDF는 OCR, PDF 페이지와 Word/PPT 내장 이미지는 현재 작업 폴더의 `.px-runtime/doc-images`에 추출해 이미지 보기 도구로 확인합니다. PDF 이미지 추출에는 Poppler의 `pdftoppm` 또는 PyMuPDF가 필요합니다. 원본 문서는 보존하며, 이미지·그림·수식 중 확인하지 못한 내용은 분석 한계에 기록합니다.
 
 ### 카파시 AutoResearch
 
@@ -221,7 +221,7 @@ Codex 구현 작업은 **Git worktree**에 격리하고, Git이 없는 프로젝
 
 최대 **5회 · 10분 · 토큰 예산 20,000 · 변경 파일 10개**이며 작업 배정창에서 더 낮게 설정할 수 있습니다. 토큰은 Codex의 실제 턴 사용량을 확인해 다음 회차를 차단합니다. 진행 중인 한 턴은 예산을 넘길 수 있으며, 초과한 변경은 폐기합니다. 구독 사용량의 사후 집계이므로 금액 단위의 결제 상한은 아닙니다. 중지 버튼으로 전체 작업과 실험을 종료할 수 있고, 상세창에 가설·변경 파일·metric 전후·채택/폐기·중지 이유를 저장합니다. 최적 결과는 개발 팀장 검수와 통합 검증을 거쳐 반영합니다.
 
-원격 Git 프로젝트도 SSH worktree를 사용하며 직렬 실행합니다. Git 격리를 사용할 수 없는 원격 프로젝트는 기존 SSH 실행으로 돌아가고 `LIMITED` 검증으로 그 한계를 기록합니다. 원격 SSH의 OS 파일 접근 범위를 강제할 수 없어 원격 AutoResearch는 실행하지 않습니다.
+원격 작업도 SSH를 통해 지정한 실제 경로에서 직접 실행합니다. SSH worktree와 별도 원본 반영 단계는 사용하지 않습니다.
 
 ### 실제 이벤트와 픽셀 상태
 

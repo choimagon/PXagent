@@ -9,8 +9,8 @@ export function validatePlan(value,{allowLegacy=true,externalIds=[]}={}) {
     if(typeof node.id!=='string'||!/^T[A-Za-z0-9_-]{1,63}$/.test(node.id)||ids.has(node.id)||external.has(node.id))throw Error('작업 ID는 고유해야 합니다.');ids.add(node.id);
     if(!PLAN_AGENT_IDS.includes(node.agentId))throw Error('총괄은 전문 담당자를 선택해야 합니다. AutoResearch는 개발 팀장만 위임합니다.');
     if(typeof node.instruction!=='string'||!node.instruction.trim()||node.instruction.length>16000||!Array.isArray(node.skills)||node.skills.length>8||!Array.isArray(node.dependsOn))throw Error('작업 지시·Skill·의존성이 올바르지 않습니다.');
-    const capability=AGENT_CAPABILITIES[node.agentId];if(node.skills.some(skill=>!capability.availableSkills.includes(skill)))throw Error('작업에 지정한 Skill을 담당자가 사용할 수 없습니다.');
-    return {id:node.id,agentId:node.agentId,instruction:node.instruction.trim(),skills:[...new Set(node.skills)],dependsOn:[...new Set(node.dependsOn)],status:'pending',attempt:0,result:'',error:null};
+    const capability=AGENT_CAPABILITIES[node.agentId];if(node.skills.some(skill=>typeof skill!=='string'))throw Error('Skill 이름이 올바르지 않습니다.');
+    return {id:node.id,agentId:node.agentId,instruction:node.instruction.trim(),skills:[...new Set(node.skills.filter(skill=>capability.availableSkills.includes(skill)))],dependsOn:[...new Set(node.dependsOn)],status:'pending',attempt:0,result:'',error:null};
   });
   for(const node of tasks)if(node.dependsOn.some(id=>(!ids.has(id)&&!external.has(id))||id===node.id))throw Error('의존 작업을 찾을 수 없거나 자기 자신을 참조합니다.');
   const visited=new Set();

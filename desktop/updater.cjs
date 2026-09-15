@@ -52,8 +52,10 @@ function createUpdater({currentVersion,platform=process.platform,arch=process.ar
     const helper=path.join(work,platform==='win32'?'apply.ps1':'apply.sh');await fsp.copyFile(path.join(__dirname,platform==='win32'?'update-helper.ps1':'update-helper.sh'),helper);
     if(platform==='win32')await fsp.writeFile(helper,'\uFEFF'+await fsp.readFile(helper,'utf8'));
     const command=platform==='win32'?path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'):'/bin/sh';
-    const args=platform==='win32'?['-NoProfile','-ExecutionPolicy','Bypass','-File',helper,'-ParentId',String(process.pid),'-Installer',staged,'-Target',target,'-Work',work]:[helper,work,String(process.pid),mode,target,staged];
+    const args=platform==='win32'?['-NoProfile','-ExecutionPolicy','Bypass','-File',helper,'-ParentId',String(process.pid),'-Installer',staged,'-Target',target,'-Work',work,'-Version',state.latestVersion]:[helper,work,String(process.pid),mode,target,staged];
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
+    // Each install attempt must wait for its own helper, including retries.
+    for(const marker of ['helper-ready','install-error','install-finished'])await fsp.rm(path.join(work,marker),{force:true});
     const child=spawn(command,args,{detached:true,stdio:'ignore',windowsHide:true,env});await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});child.unref();
     for(let i=0;i<100;i++){if(fs.existsSync(path.join(work,'helper-ready')))return publish({status:'installing',message:'앱을 종료하고 업데이트하고 있어요.'});await new Promise(resolve=>setTimeout(resolve,100));}
     try{if(platform==='win32')execFile('taskkill',['/PID',String(child.pid),'/T','/F'],()=>{});else process.kill(-child.pid,'SIGKILL');}catch{}

@@ -13,9 +13,15 @@ export async function loadSkills(agentId,requested=[]) {
     const file=await realpath(path.join(root,id,'SKILL.md'));
     if(!file.startsWith(root+path.sep))throw Error('Skill 경로가 범위를 벗어났습니다.');
     const prompt=await readFile(file,'utf8');if(prompt.length>12000)throw Error('Skill 지침이 너무 큽니다.');
-    return {id,prompt};
+    return {id,prompt,file};
   }));
 }
-export function composePrompt({basePrompt='',agentRole='',task='',skills=[],projectContext='',constraints='',outputFormat=''}) {
-  return [['BASE SYSTEM RULES',basePrompt],['AGENT ROLE',agentRole],['CURRENT TASK',task],['SELECTED SKILLS',skills.map(skill=>`## ${skill.id}\n${skill.prompt}`).join('\n\n')],['PROJECT CONTEXT',projectContext],['CONSTRAINTS',constraints],['OUTPUT FORMAT',outputFormat]].filter(([,content])=>content).map(([title,content])=>`[${title}]\n${content}`).join('\n\n');
+export async function availableSkills(agentId) {
+  const capability=AGENT_CAPABILITIES[agentId];
+  if(!capability)throw Error('Agent Skill 설정이 올바르지 않습니다.');
+  return loadSkills(agentId,capability.availableSkills);
+}
+export function composePrompt({basePrompt='',agentRole='',task='',skills=[],available=[],projectContext='',constraints='',outputFormat=''}) {
+  const catalog=available.filter(skill=>!skills.some(selected=>selected.id===skill.id));
+  return [['BASE SYSTEM RULES',basePrompt],['AGENT ROLE',agentRole],['CURRENT TASK',task],['SELECTED SKILLS',skills.map(skill=>`## ${skill.id}${skill.file?`\nSkill 파일: ${skill.file}`:''}\n${skill.prompt}`).join('\n\n')],['AVAILABLE SKILLS',catalog.length?'현재 작업에 필요한 내장 Skill을 선택하고 아래 지침을 적용하세요. 사용한 Skill을 결과에 명시하세요.\n'+catalog.map(skill=>`## ${skill.id}\nSkill 파일: ${skill.file}\n${skill.prompt}`).join('\n\n'):''],['PROJECT CONTEXT',projectContext],['CONSTRAINTS',constraints],['OUTPUT FORMAT',outputFormat]].filter(([,content])=>content).map(([title,content])=>`[${title}]\n${content}`).join('\n\n');
 }

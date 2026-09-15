@@ -100,8 +100,8 @@ after(async () => {
 test('subscription login, per-agent settings, chief delegation and actual file/log results', async () => {
   const initial=(await request('state')).data;
   assert.equal(initial.mode,'codex'); assert.equal(initial.codex.ready,true); assert.equal(initial.codex.auth,'chatgpt');
-  assert.deepEqual(initial.codex.permissions,{sandboxMode:'workspace-write',approvalPolicy:'never'});
-  assert.ok(initial.agents.filter(agent=>!['chief','secretary','analyzer'].includes(agent.id)).every(agent=>agent.permissions.sandboxMode==='workspace-write'&&agent.permissions.approvalPolicy==='never'));
+  assert.deepEqual(initial.codex.permissions,{sandboxMode:'danger-full-access',approvalPolicy:'never'});
+  assert.ok(initial.agents.every(agent=>agent.permissions.sandboxMode==='danger-full-access'&&agent.permissions.approvalPolicy==='never'));
   await request('agents/chief','PATCH',{profile:'sol',reasoningEffort:'high',fixedPrompt:'chief-fixed'});
   await request('agents/dev','PATCH',{profile:'terra',reasoningEffort:'max',fixedPrompt:'dev-fixed'});
   const created=await request('tasks','POST',{description:'개발 파일 생성',agentId:'chief',workingDirectory:workspace});assert.equal(created.status,201);
@@ -110,15 +110,26 @@ test('subscription login, per-agent settings, chief delegation and actual file/l
   assert.equal(calls.length,4);
   assert.ok(calls[0].args.includes('gpt-5.6-sol'));assert.ok(calls[0].args.includes('model_reasoning_effort="high"'));assert.ok(calls[0].args.includes('--output-schema'));
   assert.ok(calls[1].args.includes('gpt-5.6-terra'));assert.ok(calls[1].args.includes('model_reasoning_effort="max"'));
-  for(const [index,call] of calls.entries()){assert.equal(call.cwd,task.codexRuns[index].directory);assert.equal(call.args[call.args.indexOf('--sandbox')+1],index===2?'workspace-write':'read-only');assert.ok(call.args.includes('approval_policy="never"'));assert.ok(call.args.includes('forced_login_method="chatgpt"'));assert.ok(!call.envKeys.includes('OPENAI_API_KEY'));assert.ok(!call.envKeys.includes('CODEX_API_KEY'));assert.ok(!call.envKeys.includes('CODEX_THREAD_ID'));}
+  for(const [index,call] of calls.entries()){assert.equal(call.cwd,task.codexRuns[index].directory);assert.equal(call.args[call.args.indexOf('--sandbox')+1],'danger-full-access');assert.ok(!call.args.includes('--ignore-user-config'));assert.ok(call.args.includes('model_provider="openai"'));assert.ok(call.args.includes('approval_policy="never"'));assert.ok(call.args.includes('forced_login_method="chatgpt"'));assert.ok(call.prompt.includes('[SKILL USAGE]'));assert.ok(!call.envKeys.includes('OPENAI_API_KEY'));assert.ok(!call.envKeys.includes('CODEX_API_KEY'));assert.ok(!call.envKeys.includes('CODEX_THREAD_ID'));}
+  assert.ok(calls[1].prompt.includes('[AVAILABLE SKILLS]'));assert.ok(calls[2].prompt.includes('## python'));
   assert.ok(calls[0].prompt.includes('chief-fixed'));assert.ok(calls[3].prompt.includes('chief-fixed'));assert.ok(!calls[1].prompt.includes('chief-fixed'));assert.ok(calls[1].prompt.includes('dev-fixed'));
   assert.equal(await readFile(path.join(workspace,'artifact.txt'),'utf8'),'actual fixture file');
   assert.ok(task.result.includes('사장님'));assert.ok(task.workerResult.includes('verification passed'));assert.equal(task.codexRuns.length,4);assert.ok(task.codexRuns.every(run=>run.threadId&&run.usage));assert.ok(task.computerName);
-  assert.ok(task.codexRuns.every(run=>run.sandboxMode===(run.readOnly?'read-only':'workspace-write')&&run.approvalPolicy==='never'));
+  assert.ok(task.codexRuns.every(run=>run.sandboxMode==='danger-full-access'&&run.approvalPolicy==='never'));
   assert.ok(state.logs.some(log=>log.taskId===task.id&&log.message.includes('파일 변경')));assert.ok(state.logs.some(log=>log.taskId===task.id&&log.message.includes('verification passed')));assert.ok(state.agents.every(agent=>agent.status==='idle'));
 });
 
-test('workers use isolated workspaces; home and disk root remain valid settings but cannot become non-Git workspaces', async () => {
+test('a directly assigned writer receives an explicit installed skill request and its role skills',async()=>{
+  const before=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').length;
+  const created=await request('tasks','POST',{description:'$webppt 스킬로 발표 자료를 만들어주세요.',agentId:'writer',workingDirectory:other});
+  assert.equal(created.status,201);const {task}=await poll(created.data.id);assert.equal(task.status,'done');
+  const calls=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse).slice(before);
+  const worker=calls.find(call=>call.args[call.args.indexOf('--sandbox')+1]==='danger-full-access');
+  assert.ok(worker.prompt.includes('$webppt'));assert.ok(worker.prompt.includes('## writing'));assert.ok(worker.prompt.includes('## latex'));
+  assert.ok(!worker.args.includes('--ignore-user-config'));assert.equal(await readFile(path.join(other,'artifact.txt'),'utf8'),'actual fixture file');
+});
+
+test('workers run directly in the selected folder with full file access', async () => {
   const old=(await request('state')).data.settings.workingDirectory;
   for(const directory of [homedir(),path.parse(workspace).root]){
     assert.equal((await request('settings','PATCH',{workingDirectory:directory})).status,200);
@@ -128,11 +139,11 @@ test('workers use isolated workspaces; home and disk root remain valid settings 
   for(const agentId of ['dev','writer','format','misc']){
     const created=await request('tasks','POST',{description:'전체 접근 권한 실행 확인',agentId,workingDirectory:workspace});
     const {task}=await poll(created.data.id);
-    assert.equal(task.codexRuns[0].agentId,agentId);assert.equal(task.codexRuns[0].sandboxMode,agentId==='dev'?'read-only':'workspace-write');assert.equal(task.codexRuns[0].approvalPolicy,'never');
+    assert.equal(task.codexRuns[0].agentId,agentId);assert.equal(task.codexRuns[0].sandboxMode,'danger-full-access');assert.equal(task.codexRuns[0].approvalPolicy,'never');
   }
   const calls=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse).filter(call=>!call.prompt.includes('[FINAL_REVIEW]')&&!call.prompt.includes('[DEVELOPER_REVIEW]')&&!call.prompt.includes('[DEVELOPMENT_METHOD]')).slice(-4);
-  for(const call of calls){assert.equal(call.args[call.args.indexOf('--sandbox')+1],'workspace-write');assert.ok(call.args.includes('approval_policy="never"'));assert.ok(call.prompt.includes('격리된 작업공간'));
-    assert.ok(call.args.includes('sandbox_workspace_write.exclude_slash_tmp=true'));
+  for(const call of calls){assert.equal(call.args[call.args.indexOf('--sandbox')+1],'danger-full-access');assert.ok(call.args.includes('approval_policy="never"'));assert.ok(call.prompt.includes('실제 파일'));
+    assert.ok(!call.args.some(arg=>arg.startsWith('sandbox_workspace_write.')));
   }
   assert.ok(calls[3].args.includes('gpt-5.6-luna'));assert.ok(calls[3].args.includes('model_reasoning_effort="medium"'));
 });
@@ -177,10 +188,10 @@ test('stop terminates the live Codex process before freeing the agent', async ()
   assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
 });
 
-test('stopping during writable sandbox preparation never starts a Codex process',async()=>{
+test('a stopped request never starts a Codex process',async()=>{
   const before=await readFile(path.join(root,'calls.jsonl'),'utf8'),controller=new AbortController(),reason=new Error('Stop during preparation');
-  const pending=runCodex({binary,directory:workspace,model:'gpt-5.6-terra',reasoningEffort:'high',prompt:'abort-preparation-only',signal:controller.signal,sandboxMode:'workspace-write'});
   controller.abort(reason);
+  const pending=runCodex({binary,directory:workspace,model:'gpt-5.6-terra',reasoningEffort:'high',prompt:'abort-preparation-only',signal:controller.signal});
   await assert.rejects(pending,error=>error===reason);
   assert.equal(await readFile(path.join(root,'calls.jsonl'),'utf8'),before);
 });
@@ -192,7 +203,7 @@ test('subscription Goal reviews use structured output and pass remaining work in
   for(let i=0;i<300;i++){state=(await request('state')).data;goal=state.goals.find(g=>g.id===created.data.id);if(goal.status==='done')break;await sleep(20);}
   assert.equal(goal.status,'done');assert.equal(goal.round,2);
   const calls=(await readFile(path.join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse).slice(before);assert.equal(calls.length,10);
-  for(const index of [4,9]){assert.ok(calls[index].args.some(arg=>arg.endsWith('codex-goal-review.schema.json')));assert.ok(calls[index].prompt.includes('chief-fixed'));assert.ok(calls[index].args.includes('gpt-5.6-sol'));assert.equal(calls[index].args[calls[index].args.indexOf('--sandbox')+1],'read-only');}
+  for(const index of [4,9]){assert.ok(calls[index].args.some(arg=>arg.endsWith('codex-goal-review.schema.json')));assert.ok(calls[index].prompt.includes('chief-fixed'));assert.ok(calls[index].args.includes('gpt-5.6-sol'));assert.equal(calls[index].args[calls[index].args.indexOf('--sandbox')+1],'danger-full-access');}
   assert.ok(calls[5].prompt.includes('추가 검증 실행'));assert.ok(calls[5].prompt.includes('이전 회차 검토'));assert.ok(calls[6].prompt.includes('dev-fixed'));
   const letters=state.letters.filter(l=>l.goalId===goal.id);assert.equal(letters.length,2);assert.equal(letters[1].body,'파일 생성과 검증 완료');assert.equal(letters[1].goalOutcome,'done');
 });
@@ -312,7 +323,7 @@ test('computer offices reserve agents separately and isolate history, controls a
   assert.equal(done.status,'done');assert.equal(done.codexRuns[0].model,'gpt-5.6-luna');
 });
 
-test('owner secretary uses fixed Luna Medium without chief control or file permissions',async()=>{
+test('owner secretary uses fixed Luna Medium and full file access without chief control',async()=>{
   const before=(await request('state')).data.agents.find(a=>a.id==='secretary');
   assert.equal(before.ownerOnly,true);assert.equal(before.reportsTo,null);
   assert.equal((await request('agents/secretary','PATCH',{profile:'sol',reasoningEffort:'high'})).status,400);
@@ -322,7 +333,7 @@ test('owner secretary uses fixed Luna Medium without chief control or file permi
   assert.equal(response.status,200);assert.match(response.data.answer,/비둘기/);
   assert.equal(response.data.model,'gpt-5.6-luna');assert.equal(response.data.reasoningEffort,'medium');
   const call=(await captures())[offset];
-  assert.equal(call.args[call.args.indexOf('--sandbox')+1],'read-only');assert.ok(call.args.includes('gpt-5.6-luna'));assert.ok(call.args.includes('model_reasoning_effort="medium"'));
+  assert.equal(call.args[call.args.indexOf('--sandbox')+1],'danger-full-access');assert.ok(call.args.includes('gpt-5.6-luna'));assert.ok(call.args.includes('model_reasoning_effort="medium"'));
   assert.match(call.prompt,/다른 에이전트를 배정·중지·제어/);assert.ok(!call.envKeys.includes('PX_REMOTE_TOKEN'));
   assert.equal((await request('tasks','POST',{description:'비둘기 작업',agentId:'secretary'})).status,400);
   await request('agents/secretary','PATCH',{profile:before.profile,reasoningEffort:before.reasoningEffort});
@@ -399,8 +410,8 @@ test('department speed applies to every member and Codex toggles back to Normal'
   }
 });
 
-test('Analyzer reads original documents with a separate writable image cache and removes the cache after analysis',async()=>{
- await writeFile(path.join(workspace,'notes.md'),'original analysis evidence');const created=await request('tasks','POST',{agentId:'analyzer',description:'notes.md 문서 분석',workingDirectory:workspace});assert.equal(created.status,201);const {task}=await poll(created.data.id);assert.equal(task.validation.status,'PASS');assert.ok(task.result.includes('original analysis evidence'));assert.equal(await readFile(path.join(workspace,'notes.md'),'utf8'),'original analysis evidence');const run=task.codexRuns[0];assert.equal(run.agentId,'analyzer');assert.equal(run.readOnly,true);assert.equal(run.sandboxMode,'workspace-write');assert.ok(run.directory.includes('px-analysis-'));await assert.rejects(stat(run.directory),{code:'ENOENT'});
+test('Analyzer reads documents and creates image caches in the real working folder',async()=>{
+ await writeFile(path.join(workspace,'notes.md'),'original analysis evidence');const created=await request('tasks','POST',{agentId:'analyzer',description:'notes.md 문서 분석',workingDirectory:workspace});assert.equal(created.status,201);const {task}=await poll(created.data.id);assert.equal(task.validation.status,'PASS');assert.ok(task.result.includes('original analysis evidence'));assert.equal(await readFile(path.join(workspace,'notes.md'),'utf8'),'original analysis evidence');const run=task.codexRuns[0];assert.equal(run.agentId,'analyzer');assert.equal(run.readOnly,true);assert.equal(run.sandboxMode,'danger-full-access');assert.equal(run.directory,workspace);assert.ok((await stat(run.directory)).isDirectory());
 });
 test('an explicit project path in the request resolves the default home directory without copying home',async()=>{
  const previous=(await request('state')).data.settings.workingDirectory;try{await request('settings','PATCH',{workingDirectory:homedir()});const created=await request('tasks','POST',{agentId:'dev',description:`"${workspace}" 폴더에서 artifact 파일을 만들어줘`});assert.equal(created.status,201);const {task}=await poll(created.data.id);assert.equal(task.workingDirectory,workspace);assert.equal(task.validation.status,'PASS');assert.ok(task.codexRuns.every(run=>run.directory!==homedir()));}finally{await request('settings','PATCH',{workingDirectory:previous});}

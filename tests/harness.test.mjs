@@ -1,16 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,rm,mkdir,access,realpath} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
+import {tmpdir,homedir} from 'node:os';
 import path from 'node:path';
 import {validatePlan,localPlan,runGraph} from '../harness/planner.mjs';
-import {loadSkills,composePrompt} from '../harness/skills.mjs';
+import {loadSkills,availableSkills,composePrompt} from '../harness/skills.mjs';
 import {createEventBus} from '../harness/events.mjs';
 import {createRemoteWorkspaceSession} from '../harness/remote-workspace.mjs';
 import {createWorkspaceSession} from '../harness/workspace.mjs';
+import {createDirectSession} from '../harness/direct-workspace.mjs';
 import {validateWorkspace} from '../harness/validator.mjs';
 import {researchConfig,runAutoResearch} from '../harness/autoresearch.mjs';
-import {mustGit,createSandboxRunner,runShell} from '../harness/tools.mjs';
+import {mustGit,createSandboxRunner,runShell,runCommand} from '../harness/tools.mjs';
 import {codexEnvironment} from '../codex-runner.mjs';
 import {runOfficeTask} from '../harness/runtime.mjs';
 import {ADDITIONAL_AGENTS,AGENT_CAPABILITIES} from '../agents/definitions.mjs';
@@ -47,6 +48,47 @@ test('skills load only supported abilities and prompts preserve separated sectio
   await assert.rejects(loadSkills('analyzer',['react']));await assert.rejects(loadSkills('dev',['../../secret']));
   const prompt=composePrompt({basePrompt:'rules',agentRole:'role',task:'task',skills,projectContext:'project',constraints:'bounds',outputFormat:'JSON'});
   for(const title of ['BASE SYSTEM RULES','AGENT ROLE','CURRENT TASK','SELECTED SKILLS','PROJECT CONTEXT','CONSTRAINTS','OUTPUT FORMAT'])assert.ok(prompt.includes(`[${title}]`));assert.ok(!prompt.includes('# react'));
+});
+test('unknown planner skill names do not prevent a valid document assignment',()=>{
+  const graph=validatePlan({summary:'document',tasks:[{...node('T1','writer'),skills:['korean-writing','writing']}]});
+  assert.deepEqual(graph.tasks[0].skills,['writing']);
+});
+test('direct sessions can edit outside the working folder and never restore failed edits',async()=>{
+  const root=await realpath(await mkdtemp(path.join(tmpdir(),'px-direct-'))),directory=path.join(root,'documents');
+  await mkdir(directory);
+  const session=await createDirectSession(directory),workspace=await session.create('T1'),outside=path.join(root,'outside.mjs');
+  try{
+    assert.equal(workspace.workDirectory,directory);
+    // Invoke Node directly to keep this test independent of platform shell quoting.
+    assert.equal((await runCommand({command:process.execPath,args:['-e',`require('fs').writeFileSync(${JSON.stringify(outside)},'const = invalid;')`],directory})).exitCode,0);
+    workspace.recordChanges([outside]);
+    const result=await validateWorkspace({workspace,signal:controller().signal});
+    assert.equal(result.status,'FAIL');assert.ok(result.checks.some(check=>check.name==='syntax: '+outside&&!check.passed));
+    await session.dispose();assert.equal(await readFile(outside,'utf8'),'const = invalid;');assert.deepEqual(await session.integrate(),[outside]);
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+test('direct sessions accept the home directory without creating an isolated workspace',async()=>{
+  const session=await createDirectSession(homedir()),workspace=await session.create('T1');
+  assert.equal(workspace.workDirectory,await realpath(homedir()));assert.equal(workspace.direct,true);
+  assert.deepEqual(await session.integrate(),[]);await session.dispose();
+});
+test('directory sources pass Analyzer validation in direct document tasks',async()=>{
+  const root=await mkdtemp(path.join(tmpdir(),'px-directory-evidence-'));
+  try{
+    const task={description:'inspect this directory',agentId:'analyzer',runMode:'codex',workingDirectory:root,codexRuns:[]};
+    const agents=Object.keys(AGENT_CAPABILITIES).map(id=>({id,name:id}));
+    await runOfficeTask({task,agents,signal:controller().signal,useAgent:async()=>{},releaseAgent:()=>{},emit:async()=>{},createSession:()=>createDirectSession(root),ask:async()=>JSON.stringify({summary:'directory exists',findings:[],sources:[root,'user-request: directory inspection'],tables:[],figures:[],equations:[],limitations:[]})});
+    assert.equal(task.graph.tasks[0].status,'done');assert.equal(task.graph.tasks[0].validation.status,'PASS');
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+test('direct assignments receive all role skills, with resource paths and no duplicate defaults',async()=>{
+  for(const id of ['junior','writer','format','misc','analyzer','dev']){
+    const skills=await loadSkills(id),available=await availableSkills(id);
+    assert.deepEqual(available.map(skill=>skill.id),[...new Set([...AGENT_CAPABILITIES[id].defaultSkills,...AGENT_CAPABILITIES[id].availableSkills])]);
+    const prompt=composePrompt({task:'use relevant skills',skills,available});
+    for(const skill of available){assert.ok(prompt.includes(skill.prompt));assert.ok(path.isAbsolute(skill.file));assert.ok(prompt.includes(skill.file));assert.equal(prompt.split(`## ${skill.id}\n`).length-1,1);}
+  }
+  assert.deepEqual(await availableSkills('secretary'),[]);
 });
 test('events are bounded, persistent and delivered to subscribers',async()=>{
   const history=[],seen=[],bus=createEventBus({history,limit:2});const unsubscribe=bus.subscribe(event=>seen.push(event.type));

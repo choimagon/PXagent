@@ -4,7 +4,8 @@ import {mkdtemp,writeFile,readFile,rm,mkdir,chmod,access} from 'node:fs/promises
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {spawn} from 'node:child_process';
+import {spawn,execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {createRequire} from 'node:module';
 const {createUpdater,newer,assetName,checksum,validateEntries,trustedURL}=createRequire(import.meta.url)('../desktop/updater.cjs');
 const tag='v2.1.2';
@@ -30,6 +31,41 @@ test('cancelling an update removes partial downloads and permits another downloa
   const root=await mkdtemp(path.join(tmpdir(),'px-updater-cancel-'));try{const name=assetName('win32','x64','windows',tag);let started;const begun=new Promise(r=>started=r);
     const updater=createUpdater({currentVersion:'2.1.1',platform:'win32',arch:'x64',mode:'windows',target:root,dataDir:root,readText:async url=>url.includes('/latest')?JSON.stringify(release(name)):`${hash('abc')}  ${name}\n`,downloadFile:async(_url,file,{signal})=>{await writeFile(file,'a');started();await new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('cancel')),{once:true}));}});
     await updater.check();const pending=updater.download();await begun;updater.cancel();assert.equal((await pending).status,'available');await assert.rejects(access(updater.file()));
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+test('Windows helper uses upgrade arguments and detects an unchanged installation',{skip:process.platform!=='win32'},async()=>{
+  const root=await mkdtemp(path.join(tmpdir(),'px-update-windows-'));
+  try{
+    const target=path.join(root,'앱 with spaces'),work=path.join(root,'work'),packageFile=path.join(target,'resources','app','package.json');
+    await mkdir(path.dirname(packageFile),{recursive:true});await mkdir(work);
+    const harness=path.join(root,'harness.ps1');
+    // Replace only the external installer/relaunch. Execute the real helper in Windows PowerShell.
+    await writeFile(harness,`function Start-Process {
+      param($FilePath,$ArgumentList,[switch]$Wait,[switch]$PassThru)
+      if ($FilePath -eq $env:PX_TEST_INSTALLER) {
+        [IO.File]::WriteAllText((Join-Path $env:PX_TEST_WORK 'arguments'), $ArgumentList)
+        if ($env:PX_TEST_REPLACE -eq '1') {
+          [IO.File]::WriteAllText($env:PX_TEST_PACKAGE, '{"version":"2.1.2"}')
+        }
+        return [pscustomobject]@{ExitCode=0}
+      }
+      [IO.File]::WriteAllText((Join-Path $env:PX_TEST_WORK 'restarted'), $FilePath)
+    }
+    . $env:PX_TEST_HELPER -ParentId 2147483647 -Installer $env:PX_TEST_INSTALLER -Target $env:PX_TEST_TARGET -Work $env:PX_TEST_WORK -Version '2.1.2'
+    `,'utf8');
+    const powershell=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+    for(const replace of ['1','0']){
+      await writeFile(packageFile,'{"version":"2.1.1"}');
+      for(const name of ['install-finished','install-error','restarted'])await rm(path.join(work,name),{force:true});
+      await promisify(execFile)(powershell,['-NoProfile','-ExecutionPolicy','Bypass','-File',harness],{timeout:30000,env:{...process.env,PX_TEST_HELPER:path.resolve('desktop/update-helper.ps1'),PX_TEST_INSTALLER:path.join(root,'installer.exe'),PX_TEST_TARGET:target,PX_TEST_WORK:work,PX_TEST_PACKAGE:packageFile,PX_TEST_REPLACE:replace}});
+      assert.equal(await readFile(path.join(work,'arguments'),'utf8'),'--updated /S /D='+target);
+      if(replace==='1'){
+        await access(path.join(work,'install-finished'));await assert.rejects(access(path.join(work,'install-error')));
+        assert.equal(await readFile(path.join(work,'restarted'),'utf8'),path.join(target,'PXagents.exe'));
+      }else{
+        await access(path.join(work,'install-error'));await assert.rejects(access(path.join(work,'install-finished')));
+      }
+    }
   }finally{await rm(root,{recursive:true,force:true});}
 });
 test('POSIX update helper replaces the application, restarts it and preserves separate user data',{skip:process.platform==='win32'},async()=>{
